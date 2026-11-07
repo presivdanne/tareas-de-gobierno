@@ -1,6 +1,6 @@
-<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tareas de Gobierno · V16 — prueba segura OneDrive</title><style>body{margin:0;font-family:system-ui,Arial;color:#1b2d40;background:#f4f7fb}.shell{display:flex;min-height:100vh}.side{background:#19324c;color:white;width:215px;padding:22px 12px;flex-shrink:0}.brand{font-weight:700;font-size:20px;margin:12px 8px 24px}.brand small{display:block;font-size:12px;font-weight:400;color:#b6c7d7}.side nav button{display:block;width:100%;text-align:left;border:0;background:transparent;color:#d9e6f2;padding:12px;border-radius:9px;cursor:pointer;font-size:15px}.side nav button.active,.side nav button:hover{background:#315d82;color:white}.main{flex:1;min-width:0;padding:24px;max-width:1500px}.top{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:24px}.eyebrow{font-size:12px;color:#607a92}.h1{font-size:29px;font-weight:700}.btn{border:1px solid #cbd5e1;background:white;border-radius:8px;padding:9px 12px;cursor:pointer;color:#264762;display:inline-block}.btn.primary{background:#176e9e;color:white;border-color:#176e9e}.btn.danger{color:#9c2937}.link{background:transparent;border:0;color:#126997;cursor:pointer;text-align:left;font:inherit;padding:3px 0}.link:hover{text-decoration:underline}.panel{background:white;border:1px solid #e1e7ee;padding:20px;border-radius:12px;margin:16px 0}.list{background:white;border:1px solid #e1e7ee;border-radius:12px;overflow:hidden}.item{padding:13px 15px;border-bottom:1px solid #edf1f5;display:flex;justify-content:space-between;align-items:center;gap:12px}.item h3{margin:0 0 6px;font-size:16px}.muted{color:#687c8c}.small{font-size:12px}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:15px 0}.toolbar input,.toolbar select{flex:1;min-width:160px}.search{max-width:420px}input,select,textarea{font:inherit;border:1px solid #c9d5e0;border-radius:7px;padding:9px;box-sizing:border-box;max-width:100%}textarea{display:block;width:100%;min-height:170px;margin:8px 0;line-height:1.5}label{display:block;margin-top:12px;font-weight:600;font-size:13px}h2{margin:8px 0 18px}h3{margin-top:25px}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}.stat{background:white;border:1px solid #e0e6ed;border-radius:12px;padding:18px;text-align:left;cursor:pointer}.stat strong{font-size:29px;display:block}.stat span{color:#647b8d}.todotable{background:white;border:1px solid #dfe6ee;border-radius:10px;overflow:hidden}.todoheader,.todorow{display:grid;grid-template-columns:110px minmax(230px,2fr) minmax(170px,1fr) 125px;gap:12px;padding:12px;border-bottom:1px solid #e7edf2;align-items:start}.todoheader{background:#e8f1fa}.todorow:nth-child(odd){background:#fafcff}.todorow select{width:100%}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(200px,1fr));gap:10px}.formgrid input{display:block;width:100%;margin-top:6px}.foot{font-size:12px;color:#8b9aaa;margin:25px 0}.mobilebar{display:none}@media(max-width:850px){.side{display:none}.main{padding:14px 12px 75px}.h1{font-size:24px}.top{align-items:flex-start}.top .btn{font-size:11px}.mobilebar{position:fixed;bottom:0;background:white;display:flex;overflow-x:auto;width:100%;border-top:1px solid #ddd;z-index:5}.mobilebar button{background:white;border:0;padding:13px 12px;white-space:nowrap;color:#30546b}.mobilebar button.active{background:#e2f0fb}.todoheader{display:none}.todorow{grid-template-columns:1fr;gap:5px}.todorow>span:first-child{font-weight:700}.formgrid{grid-template-columns:1fr}.panel{padding:14px}.item{align-items:flex-start}}.r-table{width:100%;border-collapse:collapse;font-size:13px}.r-table td,.r-table th{border:1px solid #dce4ec;padding:7px;text-align:left;vertical-align:top}.r-task{padding:12px 0;border-bottom:1px solid #dce4ec}.r-task h3{margin:7px 0}.r-task p{margin:5px 0}</style><style>.task-status-group{margin:16px 0 22px;border:1px solid #d9e0e7;border-radius:10px;overflow:hidden}.task-status-group>summary{cursor:pointer;padding:15px 18px;font-size:1.08rem;font-weight:700;background:#f1f5f9;list-style-position:inside}.task-status-group>.list{padding:0 14px 8px}.task-status-group .item:last-child{border-bottom:0}</style></head><body><div class="shell"><aside class="side"><div class="brand">Tareas de Gobierno<small>V16 · Prueba segura OneDrive</small></div><nav id="desktopnav"></nav><div class="foot">Datos locales · Sin sincronización</div></aside><main class="main"><div class="top"><div><div class="eyebrow">Organización y seguimiento</div><div class="h1" id="title"></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="backup">Exportar copia JSON</button><button class="btn" onclick="showCloudPanel()">OneDrive (pruebas)</button></div></div><div class="panel" style="border:2px solid #b45309;background:#fffbeb"><strong>VERSIÓN DE PRUEBAS SIN DATOS</strong> · Este sitio es público. No contiene la base de datos original. No lo uses como copia principal ni importes datos reales hasta verificar la conexión y la seguridad.</div><div id="content"></div><div class="foot">Versión de prueba. Conserva una copia de seguridad de los cambios.</div></main></div><div id="mobilenav" class="mobilebar"></div><script>
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tareas de Gobierno · V17 — sincronización experimental</title><style>body{margin:0;font-family:system-ui,Arial;color:#1b2d40;background:#f4f7fb}.shell{display:flex;min-height:100vh}.side{background:#19324c;color:white;width:215px;padding:22px 12px;flex-shrink:0}.brand{font-weight:700;font-size:20px;margin:12px 8px 24px}.brand small{display:block;font-size:12px;font-weight:400;color:#b6c7d7}.side nav button{display:block;width:100%;text-align:left;border:0;background:transparent;color:#d9e6f2;padding:12px;border-radius:9px;cursor:pointer;font-size:15px}.side nav button.active,.side nav button:hover{background:#315d82;color:white}.main{flex:1;min-width:0;padding:24px;max-width:1500px}.top{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:24px}.eyebrow{font-size:12px;color:#607a92}.h1{font-size:29px;font-weight:700}.btn{border:1px solid #cbd5e1;background:white;border-radius:8px;padding:9px 12px;cursor:pointer;color:#264762;display:inline-block}.btn.primary{background:#176e9e;color:white;border-color:#176e9e}.btn.danger{color:#9c2937}.link{background:transparent;border:0;color:#126997;cursor:pointer;text-align:left;font:inherit;padding:3px 0}.link:hover{text-decoration:underline}.panel{background:white;border:1px solid #e1e7ee;padding:20px;border-radius:12px;margin:16px 0}.list{background:white;border:1px solid #e1e7ee;border-radius:12px;overflow:hidden}.item{padding:13px 15px;border-bottom:1px solid #edf1f5;display:flex;justify-content:space-between;align-items:center;gap:12px}.item h3{margin:0 0 6px;font-size:16px}.muted{color:#687c8c}.small{font-size:12px}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:15px 0}.toolbar input,.toolbar select{flex:1;min-width:160px}.search{max-width:420px}input,select,textarea{font:inherit;border:1px solid #c9d5e0;border-radius:7px;padding:9px;box-sizing:border-box;max-width:100%}textarea{display:block;width:100%;min-height:170px;margin:8px 0;line-height:1.5}label{display:block;margin-top:12px;font-weight:600;font-size:13px}h2{margin:8px 0 18px}h3{margin-top:25px}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}.stat{background:white;border:1px solid #e0e6ed;border-radius:12px;padding:18px;text-align:left;cursor:pointer}.stat strong{font-size:29px;display:block}.stat span{color:#647b8d}.todotable{background:white;border:1px solid #dfe6ee;border-radius:10px;overflow:hidden}.todoheader,.todorow{display:grid;grid-template-columns:110px minmax(230px,2fr) minmax(170px,1fr) 125px;gap:12px;padding:12px;border-bottom:1px solid #e7edf2;align-items:start}.todoheader{background:#e8f1fa}.todorow:nth-child(odd){background:#fafcff}.todorow select{width:100%}.formgrid{display:grid;grid-template-columns:repeat(2,minmax(200px,1fr));gap:10px}.formgrid input{display:block;width:100%;margin-top:6px}.foot{font-size:12px;color:#8b9aaa;margin:25px 0}.mobilebar{display:none}@media(max-width:850px){.side{display:none}.main{padding:14px 12px 75px}.h1{font-size:24px}.top{align-items:flex-start}.top .btn{font-size:11px}.mobilebar{position:fixed;bottom:0;background:white;display:flex;overflow-x:auto;width:100%;border-top:1px solid #ddd;z-index:5}.mobilebar button{background:white;border:0;padding:13px 12px;white-space:nowrap;color:#30546b}.mobilebar button.active{background:#e2f0fb}.todoheader{display:none}.todorow{grid-template-columns:1fr;gap:5px}.todorow>span:first-child{font-weight:700}.formgrid{grid-template-columns:1fr}.panel{padding:14px}.item{align-items:flex-start}}.r-table{width:100%;border-collapse:collapse;font-size:13px}.r-table td,.r-table th{border:1px solid #dce4ec;padding:7px;text-align:left;vertical-align:top}.r-task{padding:12px 0;border-bottom:1px solid #dce4ec}.r-task h3{margin:7px 0}.r-task p{margin:5px 0}</style><style>.task-status-group{margin:16px 0 22px;border:1px solid #d9e0e7;border-radius:10px;overflow:hidden}.task-status-group>summary{cursor:pointer;padding:15px 18px;font-size:1.08rem;font-weight:700;background:#f1f5f9;list-style-position:inside}.task-status-group>.list{padding:0 14px 8px}.task-status-group .item:last-child{border-bottom:0}</style></head><body><div class="shell"><aside class="side"><div class="brand">Tareas de Gobierno<small>V17 · Sincronización experimental</small></div><nav id="desktopnav"></nav><div class="foot">Datos locales · Sin sincronización</div></aside><main class="main"><div class="top"><div><div class="eyebrow">Organización y seguimiento</div><div class="h1" id="title"></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="backup">Exportar copia JSON</button><button class="btn" onclick="showCloudPanel()">OneDrive (pruebas)</button></div></div><div class="panel" style="border:2px solid #b45309;background:#fffbeb"><strong>VERSIÓN DE PRUEBAS SIN DATOS</strong> · Este sitio es público. No contiene la base de datos original. No lo uses como copia principal ni importes datos reales hasta verificar la conexión y la seguridad.</div><div id="content"></div><div class="foot">Versión de prueba. Conserva una copia de seguridad de los cambios.</div></main></div><div id="mobilenav" class="mobilebar"></div><script>
 const INITIAL={"Equipo_Miembros_Join":[],"Proyectos_Tareas_join":[],"Miembros":[],"Tareas":[],"To_Dos":[],"Instancias":[],"Asignaciones":[],"Tareas_Equipos_Join":[],"Cargos":[],"Equipos":[],"Proyectos":[]};
-const KEY='gobierno_public_test_v16';let db;try{db=JSON.parse(localStorage.getItem(KEY))||structuredClone(INITIAL)}catch(e){db=structuredClone(INITIAL)}db.Notas_Seguimiento??=[];
+const KEY='gobierno_public_test_v17';let db;try{db=JSON.parse(localStorage.getItem(KEY))||structuredClone(INITIAL)}catch(e){db=structuredClone(INITIAL)}db.Notas_Seguimiento??=[];
 const PRIORITIES=[['corresponsabilidad','Corresponsabilidad y liderazgo compartido'],['consagracion','Consagración gozosa y profética'],['eclesialidad','Eclesialidad y comunión'],['sostenibilidad','Sostenibilidad humana y económica']];
 const TYPES=['Área permanente','Proyecto concreto','Actividad recurrente'];
 const RECOMMENDATIONS={2:['Actividad recurrente',[]],3:['Área permanente',[]],4:['Actividad recurrente',[]],5:['Actividad recurrente',['consagracion']],6:['Actividad recurrente',[]],7:['Área permanente',['corresponsabilidad']],8:['Actividad recurrente',[]],9:['Proyecto concreto',[]],10:['Área permanente',[]],11:['Proyecto concreto',['sostenibilidad']],12:['Proyecto concreto',['consagracion']],13:['Área permanente',[]],14:['Área permanente',[]],15:['Proyecto concreto',[]],16:['Proyecto concreto',[]],17:['Área permanente',[]],18:['Área permanente',['sostenibilidad']],19:['Área permanente',['sostenibilidad']],20:['Área permanente',[]],21:['Área permanente',['corresponsabilidad']],22:['Área permanente',[]],23:['Área permanente',[]],24:['Área permanente',[]]};
@@ -18,7 +18,7 @@ const isInfo=x=>String(x.Estatus||'').toLowerCase()==='info';
 const date=x=>{if(typeof x==='number' && Number.isFinite(x) && x>1 && x<2958466){let d=new Date(Math.round((x-25569)*86400000));return d.toISOString().slice(0,10)}let s=String(x||'');if(!s)return '';if(/^\d{4}-\d\d-\d\d/.test(s))return s.slice(0,10);let m=s.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})/);return m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:''};
 const disp=x=>date(x)?date(x).split('-').reverse().join('/'):'';
 const next=(k,f)=>Math.max(0,...arr(k).map(x=>Number(x[f])||0))+1;
-const save=()=>{localStorage.setItem(KEY,JSON.stringify(db));};
+const save=()=>{localStorage.setItem(KEY,JSON.stringify(db));if(typeof syncLocalChange==='function')syncLocalChange();};
 const options=(k,sel='',blank='Seleccionar…')=>`<option value="" ${String(sel)===''?'selected':''}>${blank}</option>`+arr(k).slice().sort((a,b)=>String(name(k,a[pk(k)])||'').localeCompare(String(name(k,b[pk(k)])||''),'es',{sensitivity:'base',numeric:true})).map(x=>`<option value="${x[pk(k)]}" ${String(x[pk(k)])===String(sel)?'selected':''}>${E(name(k,x[pk(k)]))}</option>`).join('');
 function nav(p,i=null){page=p;id=i;q='';filter='';render()};
 const link=(p,i,label)=>`<button class="link" onclick="nav('${p}',${Number(i)})">${E(label)}</button>`;
@@ -157,22 +157,28 @@ ensureStrategic();$('#backup').onclick=exportData;render();
 
 // V16: conexión manual de prueba; no cambia la lógica de guardado local de V14.
 const OD_CLIENT_KEY='gobierno_onedrive_client_id';
-const OD_PATH='/me/drive/special/approot:/Tareas_Gobierno_v16_pruebas.json:/content';
+const OD_PATH='/me/drive/special/approot:/Tareas_Gobierno_v17_pruebas.json:/content';
 let odAccessToken=null,odETag=null,odRemoteKnown=false;
+let syncEnabled=false,syncDirty=localStorage.getItem('gobierno_v17_dirty')==='1',syncBusy=false,syncTimer=null,syncRevision=0;
+const syncSessionKey='gobierno_v17_sync_enabled';
 const odEncoder=new TextEncoder();
 function odBase64Url(bytes){return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
 function odStatus(message){const e=document.getElementById('od-status');if(e)e.textContent=message;}
 function showCloudPanel(){
-  const html=`<div class="panel" style="border:2px solid #176e9e"><h2>OneDrive · conexión de pruebas (V16)</h2>
-  <p><strong>Tu aplicación sigue guardando exclusivamente en este navegador.</strong> La conexión con OneDrive es opcional y manual durante las pruebas. No sustituye las copias JSON.</p>
+  const html=`<div class="panel" style="border:2px solid #176e9e"><h2>OneDrive · sincronización experimental (V17)</h2>
+  <p><strong>La aplicación guarda primero en este navegador. La sincronización experimental es opcional y requiere una sesión Microsoft activa.</strong> La conexión con OneDrive es opcional y manual durante las pruebas. No sustituye las copias JSON.</p>
   <p>Para iniciar sesión hace falta registrar una aplicación de tipo SPA en Microsoft Entra, con cuentas personales y la dirección HTTPS exacta de esta página como URI de redirección. No compartas contraseñas ni códigos.</p>
   <label>ID de aplicación (cliente) de Microsoft</label><input id="od-client" style="width:100%" value="${E(localStorage.getItem(OD_CLIENT_KEY)||'372a22d6-b865-48df-9c0f-22ac79f2ac42')}" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
   <div class="toolbar"><button class="btn" onclick="odLogin()">Conectar con Microsoft</button><button class="btn" onclick="odInspect()">Comprobar archivo remoto</button></div>
   <p id="od-status" class="muted">${odAccessToken?'Sesión de prueba conectada (hasta que caduque el token).':'Sin sesión Microsoft activa.'}</p>
   <div class="toolbar"><button class="btn" onclick="odDownload()">Importar desde OneDrive (confirmación)</button><button class="btn primary" onclick="odUpload()">Enviar copia a OneDrive (confirmación)</button></div>
-  <p class="small muted">Archivo de pruebas: Tareas_Gobierno_v16_pruebas.json, en la carpeta de aplicaciones de OneDrive. Si el archivo remoto ha cambiado, se bloquea la sobrescritura. Esta versión no tiene sincronización automática ni trabajo simultáneo.</p>
+  <div class="panel" style="background:#f1f7fb"><strong>Sincronización automática (solo datos de prueba)</strong>
+  <p class="small">Actívala únicamente después de comprobar o importar el archivo remoto. Los cambios locales se enviarán tras una breve pausa. Si hay un conflicto o falla la conexión, se detiene y conserva la copia local.</p>
+  <div class="toolbar"><button class="btn primary" onclick="syncEnable()">Activar sincronización</button><button class="btn" onclick="syncDisable()">Detener sincronización</button><button class="btn" onclick="syncNow()">Sincronizar ahora</button></div>
+  <p id="sync-status" class="muted">${syncEnabled?'Activada':'Desactivada'}${syncDirty?' · Cambios pendientes':''}</p></div>
+  <p class="small muted">Archivo de pruebas: Tareas_Gobierno_v17_pruebas.json, en la carpeta de aplicaciones de OneDrive. Si el archivo remoto ha cambiado, se bloquea la sobrescritura. La sincronización es experimental, no permite edición simultánea y se detiene ante conflictos.</p>
   <button class="btn" onclick="render()">Volver</button></div>`;
-  document.getElementById('title').textContent='OneDrive · pruebas';document.getElementById('content').innerHTML=html;
+  document.getElementById('title').textContent='OneDrive · pruebas';document.getElementById('content').innerHTML=html;syncShow();
 }
 async function odLogin(){
   const client=(document.getElementById('od-client')?.value||'').trim();
@@ -198,7 +204,7 @@ async function odCallback(){
     const body=new URLSearchParams({client_id:pending.client,grant_type:'authorization_code',code,redirect_uri:pending.redirect,code_verifier:pending.verifier,scope:'openid profile offline_access Files.ReadWrite.AppFolder'});
     const r=await fetch('https://login.microsoftonline.com/consumers/oauth2/v2.0/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});const d=await r.json();
     if(!r.ok||!d.access_token)throw Error(d.error_description||'No se obtuvo acceso');
-    odAccessToken=d.access_token;odETag=null;odRemoteKnown=false;
+    odAccessToken=d.access_token;odETag=null;odRemoteKnown=false;syncEnabled=false;
     showCloudPanel();odStatus('Conectado. Comprueba primero el archivo remoto.');
   }catch(e){alert('Error al conectar: '+e.message)}
 }
@@ -215,26 +221,63 @@ async function odInspect(){
  }catch(e){odStatus('Error: '+e.message)}
 }
 async function odDownload(){
+ if(syncEnabled)return alert('Detén primero la sincronización antes de importar.');
  if(!confirm('IMPORTANTE: esto reemplazará los datos actuales de este navegador. ¿Has exportado antes una copia JSON?'))return;
  try{const r=await odFetch();if(!r.ok)throw Error('No se pudo leer el archivo: '+r.status);
  const raw=await r.text(),incoming=JSON.parse(raw);
  if(!incoming||!Array.isArray(incoming.Tareas)||!Array.isArray(incoming.Proyectos)||!Array.isArray(incoming.To_Dos))throw Error('El archivo remoto no tiene el formato esperado.');
  if(!confirm('Se han encontrado '+incoming.Tareas.length+' tareas y '+incoming.To_Dos.length+' to-dos. ¿Reemplazar los datos locales?'))return;
  const snapshot=JSON.stringify(db);localStorage.setItem('gobierno_v16_preimport_'+Date.now(),snapshot);
- db=incoming;db.Notas_Seguimiento??=[];save();odETag=r.headers.get('etag');odRemoteKnown=true;nav('inicio');alert('Importación completada. Exporta una copia JSON para verificar.');
+ db=incoming;db.Notas_Seguimiento??=[];save();syncDirty=false;localStorage.removeItem('gobierno_v17_dirty');odETag=r.headers.get('etag');odRemoteKnown=true;nav('inicio');alert('Importación completada. Exporta una copia JSON para verificar.');
  }catch(e){alert('No se ha importado: '+e.message)}
 }
 async function odUpload(){
+ if(syncEnabled)return odStatus('Detén la sincronización automática antes de usar el envío manual.');
  if(!odRemoteKnown)return odStatus('Primero pulsa «Comprobar archivo remoto» para evitar sobrescribir una versión desconocida.');
  if(!confirm('¿Enviar una COPIA de los datos actuales a OneDrive? El guardado local seguirá siendo independiente.'))return;
  try{
   const headers={'Content-Type':'application/json',...(odETag?{'If-Match':odETag}:{'If-None-Match':'*'})};
-  const r=await odFetch('PUT',JSON.stringify(db),headers);
+  const uploadRev=syncRevision;const r=await odFetch('PUT',JSON.stringify(db),headers);
   if(r.status===409||r.status===412)throw Error('Conflicto: el archivo remoto ha cambiado. No se sobrescribió. Comprueba el archivo y decide qué copia conservar.');
   if(!r.ok)throw Error('Microsoft Graph respondió '+r.status+': '+(await r.text()).slice(0,250));
-  const d=await r.json();odETag=d.eTag||null;odRemoteKnown=false;
+  const d=await r.json();odETag=d.eTag||null;odRemoteKnown=false;if(syncRevision===uploadRev){syncDirty=false;localStorage.removeItem('gobierno_v17_dirty');}
   odStatus('Copia enviada. Comprueba de nuevo el archivo remoto antes de otra operación.');
  }catch(e){odStatus('No se ha guardado: '+e.message)}
+}
+function syncShow(message){const e=document.getElementById('sync-status');if(e)e.textContent=(syncEnabled?'Activada':'Desactivada')+(syncDirty?' · Cambios pendientes':'')+(message?' · '+message:'');}
+function syncDisable(message=''){syncEnabled=false;clearTimeout(syncTimer);syncShow(message||'Guardado automático detenido. Los cambios siguen en este navegador.');}
+function syncLocalChange(){syncRevision++;syncDirty=true;localStorage.setItem('gobierno_v17_dirty','1');if(syncEnabled){clearTimeout(syncTimer);syncTimer=setTimeout(syncNow,1800)}syncShow();}
+async function syncEnable(){
+ if(!odAccessToken)return syncShow('Conecta primero con Microsoft.');
+ if(!odRemoteKnown)return syncShow('Primero comprueba el archivo remoto.');
+ if(!odETag)return syncShow('No se ha identificado una versión remota. Usa primero el envío manual y vuelve a comprobar.');
+ if(syncDirty)return syncShow('Hay cambios locales sin verificar. Exporta una copia JSON y decide qué versión conservar antes de activar.');
+ if(!confirm('Activar sincronización EXPERIMENTAL solo con datos de prueba? No abras la aplicación en dos dispositivos al mismo tiempo.'))return;
+ syncEnabled=true;syncShow('Lista. Los cambios se enviarán automáticamente.');
+}
+async function syncNow(){
+ clearTimeout(syncTimer);
+ if(!syncEnabled)return syncShow('Activa primero la sincronización.');
+ if(syncBusy)return;
+ if(!syncDirty)return syncShow('Sin cambios pendientes.');
+ if(!odAccessToken){syncDisable('Sesión caducada. Reconecta y comprueba el archivo remoto.');return;}
+ syncBusy=true;const rev=syncRevision;
+ try{
+   // Read current remote metadata before writing, then use a conditional write.
+   const meta=await fetch('https://graph.microsoft.com/v1.0/me/drive/special/approot:/Tareas_Gobierno_v17_pruebas.json',{headers:{Authorization:'Bearer '+odAccessToken}});
+   if(!meta.ok)throw Error('No se pudo verificar el archivo remoto ('+meta.status+').');
+   const info=await meta.json();
+   if(!odETag||info.eTag!==odETag)throw Error('CONFLICTO: el archivo de OneDrive ha cambiado. No se sobrescribió.');
+   const payload=JSON.stringify(db);
+   const r=await odFetch('PUT',payload,{'Content-Type':'application/json','If-Match':odETag});
+   if(!r.ok)throw Error(r.status===409||r.status===412?'CONFLICTO: OneDrive rechazó la sobrescritura.':'No se pudo guardar ('+r.status+').');
+   const saved=await r.json();
+   odETag=saved.eTag||null;
+   if(!odETag)throw Error('No se recibió la versión remota; se ha detenido la sincronización.');
+   if(rev===syncRevision){syncDirty=false;localStorage.removeItem('gobierno_v17_dirty');}
+   syncShow('Guardado en OneDrive.');
+ }catch(e){syncDisable(e.message+' Exporta una copia JSON antes de volver a conectar.');}
+ finally{syncBusy=false;if(syncEnabled&&syncDirty){syncTimer=setTimeout(syncNow,1800)}}
 }
 odCallback();
 </script></body></html>
