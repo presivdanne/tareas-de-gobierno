@@ -1,0 +1,18 @@
+{
+  "name": "Tareas de Gobierno V28a — pruebas",
+  "short_name": "Gobierno V28a",
+  "description": "Prueba cifrada de fusión de proyectos con uso offline",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f7fb",
+  "theme_color": "#19324c",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
