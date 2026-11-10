@@ -419,8 +419,54 @@ function v26DisplayValue(v){
 let v26Incoming=null,v26Choices={};
 let v29bPreviewBaseline=null;
 function v26MergePanel(){return `<div class="panel" style="border:2px solid #b45309"><h2>Fusionar copia CIFRADA (experimental) · V29b</h2><p>Solo para <strong>datos inventados: proyectos, tareas, to-dos y vínculos proyecto-tarea</strong>. Si hay otras tablas con datos, se bloqueará la fusión. Las diferencias de ID requieren revisión. Se comparan campos opcionales normalizados para evitar falsos conflictos. Los registros ya existentes con otro ID se reconocen por sus campos y relaciones, sin duplicarlos. Las colisiones restantes se revisan manualmente. <strong>No se puede guardar hasta revisar todas las diferencias.</strong> No se envía nada a OneDrive al guardar esta fusión.</p><p>Conserva las copias cifradas originales de Chrome y Edge.</p><label class="btn">Seleccionar copia cifrada <input type="file" accept=".json" style="display:none" onchange="v26Preview(this)"></label><div id="v26-merge-result"></div></div>`}
+// V29b Correction 5: separate, password-verified COMPLETE restore (not merge).
+// Import never alters the current database until the encrypted backup has been
+// authenticated, its tables and follow-up-note references checked, and the user confirms.
+function v29bValidateRestore(d){
+ if(!d||typeof d!=='object')throw Error('Contenido de copia no válido.');
+ const required=['Proyectos','Tareas','To_Dos','Proyectos_Tareas_join','Notas_Seguimiento'];
+ for(const t of required)if(!Array.isArray(d[t]))throw Error('Falta la tabla '+t+' en la copia.');
+ const ids=(table,field)=>{const found=new Set();for(const r of d[table]){const id=Number(r[field]);if(!Number.isSafeInteger(id)||id<1||found.has(id))throw Error('ID inválido o repetido en '+table);found.add(id)}return found};
+ const tasks=ids('Tareas','Tarea_ID'),todos=ids('To_Dos','To_Do_ID'),projects=ids('Proyectos','Proyecto_ID');ids('Notas_Seguimiento','Nota_ID');
+ for(const t of d.To_Dos)if(!tasks.has(Number(t.Tarea_ID)))throw Error('To-do sin tarea válida.');
+ for(const n of d.Notas_Seguimiento){
+  if(!tasks.has(Number(n.Tarea_ID)))throw Error('Nota sin tarea válida.');
+  if(n.To_Do_ID!==null&&n.To_Do_ID!==undefined&&n.To_Do_ID!==''){
+   if(!todos.has(Number(n.To_Do_ID)))throw Error('Nota sin to-do válido.');
+   const td=d.To_Dos.find(t=>Number(t.To_Do_ID)===Number(n.To_Do_ID));
+   if(Number(td.Tarea_ID)!==Number(n.Tarea_ID))throw Error('Nota vinculada a una tarea incorrecta.');
+  }
+ }
+ for(const l of d.Proyectos_Tareas_join)if(!projects.has(Number(l.Proyecto_ID))||!tasks.has(Number(l.Tarea_ID)))throw Error('Vínculo proyecto-tarea inválido.');
+ return {projects:d.Proyectos.length,tasks:d.Tareas.length,todos:d.To_Dos.length,notes:d.Notas_Seguimiento.length};
+}
+async function v29bRestoreComplete(input){
+ const out=document.getElementById('v29b-restore-result');
+ const pass=document.getElementById('v29b-restore-pass');
+ try{
+  const f=input.files?.[0];if(!f)return;
+  if(f.size>20000000)throw Error('Archivo demasiado grande.');
+  if(!pass.value)throw Error('Introduce primero la contraseña de la copia.');
+  out.textContent='Verificando copia cifrada…';
+  const env=validateV23(JSON.parse(await f.text()));
+  const key=await v23Derive(pass.value,v23Unb64(env.salt));
+  const restored=await v23Open(env,key);
+  const counts=v29bValidateRestore(restored);
+  out.textContent='Copia verificada: '+counts.projects+' proyectos, '+counts.tasks+' tareas, '+counts.todos+' to-dos y '+counts.notes+' notas.';
+  if(!confirm('RESTAURACIÓN COMPLETA (NO FUSIÓN)\n\n'+out.textContent+'\n\nEsto REEMPLAZARÁ todos los datos de este navegador por los de la copia. No se mezclarán. Continúa solo en la ventana InPrivate de pruebas. ¿Restaurar?'))return;
+  await saveQueue;
+  v23Epoch++;
+  localStorage.removeItem('gobierno_v29b_verified_remote_content_sha256');
+  localStorage.setItem(KEY,JSON.stringify(env));
+  v23Key=null;v23Salt=null;db=structuredClone(INITIAL);db.Notas_Seguimiento=[];
+  pass.value='';
+  location.reload();
+ }catch(e){out.textContent='No se ha cambiado nada. '+e.message;}
+ finally{input.value='';pass.value='';}
+}
+function v29bRestorePanel(){return `<div class="panel" style="border:2px solid #357e70"><h2>Restaurar copia CIFRADA completa · V29b (pruebas)</h2><p>Recupera proyectos, tareas, to-dos y notas de seguimiento con sus vínculos. <strong>Reemplaza todos los datos locales; NO fusiona.</strong> Prueba primero en una ventana InPrivate. Conserva la copia original.</p><label>Contraseña de la copia cifrada <input type="password" id="v29b-restore-pass" autocomplete="off" placeholder="Contraseña de la copia"></label><div class="toolbar"><label class="btn">Seleccionar copia para RESTAURAR <input type="file" accept=".json" style="display:none" onchange="v29bRestoreComplete(this)"></label></div><p class="muted" id="v29b-restore-result" aria-live="polite"></p></div>`}
 const v26OldDataPage=dataPage;
-dataPage=function(){return v26OldDataPage()+v26MergePanel()};
+dataPage=function(){return v26OldDataPage()+v29bRestorePanel()+v26MergePanel()};
 async function v26Preview(input){const output=document.getElementById('v26-merge-result');v26Candidate=null;v26CandidateStats=null;v26Incoming=null;v26Choices={};try{
  await saveQueue;const file=input.files?.[0];if(!file)return;if(file.size>20000000)throw Error('Archivo demasiado grande');
  const env=validateV23(JSON.parse(await file.text()));const password=prompt('Contraseña de la copia cifrada (solo en este navegador):');if(password===null)return;
