@@ -1235,7 +1235,7 @@ const v17fPreviousDataPage=dataPage;dataPage=function(){return v17fPreviousDataP
 // Correction 17H: review decisions and provisional in-memory preview only.
 // No persistence, export, cloud access, or changes to the local database.
 let v17hReview=null;
-function v17hPanel(){return `<div class="panel" style="border:2px solid #176e9e"><h2>17I · Conservar ambos (simulación segura)</h2><p>Selecciona la copia cifrada de Edge y revisa las diferencias campo por campo. Puedes elegir Chrome, Edge, <strong>Conservar ambos</strong> o <strong>Revisar más adelante</strong>. La opción de conservar ambos crea un segundo registro únicamente en la vista previa. Las decisiones solo existen en esta pantalla. <strong>No guarda, restaura, fusiona ni envía datos.</strong></p><label class="btn">Seleccionar copia CIFRADA de Edge <input type="file" accept=".json,application/json" style="display:none" onchange="v17hLoad(this)"></label><div id="v17h-result" aria-live="polite">Esperando archivo.</div></div>`}
+function v17hPanel(){return `<div class="panel" style="border:2px solid #176e9e"><h2>17I.1 · Conservar ambos y reasignar vínculos (simulación)</h2><p>Selecciona la copia cifrada de Edge y revisa las diferencias campo por campo. Puedes elegir Chrome, Edge, <strong>Conservar ambos</strong> o <strong>Revisar más adelante</strong>. La opción de conservar ambos crea un segundo registro únicamente en la vista previa. Las decisiones solo existen en esta pantalla. <strong>No guarda, restaura, fusiona ni envía datos.</strong></p><label class="btn">Seleccionar copia CIFRADA de Edge <input type="file" accept=".json,application/json" style="display:none" onchange="v17hLoad(this)"></label><div id="v17h-result" aria-live="polite">Esperando archivo.</div></div>`}
 function v17hEl(tag,value){const el=document.createElement(tag);if(value!==undefined)el.textContent=String(value);return el}
 function v17hKey(t,id,f){return JSON.stringify([t,String(id),f])}
 async function v17hLoad(input){const out=document.getElementById('v17h-result');if(!out)return;v17hReview=null;out.textContent='Comprobando archivos…';try{
@@ -1253,13 +1253,80 @@ function v17hRender(){const out=document.getElementById('v17h-result'),s=v17hRev
  for(const f of c.fields){const tr=v17hEl('tr');for(const v of [f,v17gPretty(c.a[f]),v17gPretty(c.b[f])]){const td=v17hEl('td',v);td.style.cssText='overflow-wrap:anywhere;white-space:pre-wrap;max-width:270px';tr.append(td)}const td=v17hEl('td'),select=v17hEl('select');select.style.maxWidth='190px';const key=v17hKey(c.table,c.id,f);for(const [val,label] of [['','Revisar más adelante'],['chrome','Conservar Chrome'],['edge','Conservar Edge']]){const opt=v17hEl('option',label);opt.value=val;select.append(opt)}select.value=s.choices[key]||'';select.disabled=s.choices[v17hKey(c.table,c.id,'__both')]==='both';select.addEventListener('change',()=>v17hSet(key,select.value));td.append(select);tr.append(td);table.append(tr)}d.append(table);const bothKey=v17hKey(c.table,c.id,'__both');const label=v17hEl('label');label.style.cssText='display:block;margin:12px 0;font-weight:600';const check=v17hEl('input');check.type='checkbox';check.checked=s.choices[bothKey]==='both';check.addEventListener('change',()=>v17iBoth(c,check.checked));label.append(check,document.createTextNode(' Conservar ambos registros (Chrome y Edge)'));d.append(label);if(check.checked){const p=v17hEl('p','Vista previa: se asignará un ID nuevo a la copia de Edge. Las relaciones existentes permanecerán vinculadas al registro original de Chrome; los vínculos de la copia de Edge necesitan revisión explícita antes de una fusión real.');p.className='muted';d.append(p)}out.append(d)}
  const group=v17hEl('details');group.className='panel';group.append(v17hEl('summary',`Registros exclusivos (${s.unique.length}) · conservar provisionalmente`));for(const u of s.unique)group.append(v17hEl('p',`${u.side} · ${u.table} · ${v17gRowName(u.row,u.pk)}`));out.append(group);
  const status=v17hEl('div');status.id='v17h-status';out.append(status);v17hUpdate();out.append(v17hEl('p','Las selecciones no se almacenan, no se exportan y se pierden al salir de esta pantalla. Conserva las copias originales.'))}
-function v17hUpdate(){const s=v17hReview,out=document.getElementById('v17h-status');if(!s||!out)return;out.replaceChildren();let total=0,chosen=0;for(const c of s.conflicts)for(const f of c.fields){total++;if(s.choices[v17hKey(c.table,c.id,f)]||s.choices[v17hKey(c.table,c.id,'__both')]==='both')chosen++}out.append(v17hEl('h3',`Decisiones: ${chosen} de ${total} campos`));if(chosen!==total){out.append(v17hEl('p',`Quedan ${total-chosen} campos por revisar. No se prepara candidato.`));return}
- // Provisional candidate for validation only. Same-ID identity and independent edits cannot be proven without a common ancestor.
- const candidate=structuredClone(s.local);for(const [table,pk] of Object.entries(V26_TABLES)){candidate[table]=Array.isArray(candidate[table])?candidate[table]:[];const map=new Map(candidate[table].map((r,i)=>[String(r[pk]),i]));for(const u of s.unique.filter(u=>u.table===table&&u.side==='Edge')){if(!map.has(String(u.id))){candidate[table].push(structuredClone(u.row));map.set(String(u.id),candidate[table].length-1)}}for(const c of s.conflicts.filter(c=>c.table===table)){const i=map.get(String(c.id));if(i===undefined)continue;if(s.choices[v17hKey(table,c.id,'__both')]==='both'){const ids=candidate[table].map(r=>Number(r[pk]));const newId=Math.max(0,...ids)+1;if(!Number.isSafeInteger(newId))throw Error('Sin ID seguro disponible');const copy=structuredClone(c.b);copy[pk]=newId;candidate[table].push(copy);map.set(String(newId),candidate[table].length-1);continue}for(const f of c.fields){const choice=s.choices[v17hKey(table,c.id,f)];if(choice==='edge'){if(Object.prototype.hasOwnProperty.call(c.b,f))candidate[table][i][f]=structuredClone(c.b[f]);else delete candidate[table][i][f]}}}}
- const problems=v17eAnalyze(candidate).issues;const both=s.conflicts.filter(c=>s.choices[v17hKey(c.table,c.id,'__both')]==='both');out.append(v17hEl('p',problems.length?'REVISAR: el candidato provisional tiene problemas de integridad.':'Vista previa provisional: no se detectaron problemas en las relaciones comprobadas.'));
- if(both.length){out.append(v17hEl('p',`Conservar ambos: ${both.length} copia(s) de Edge añadidas provisionalmente con ID nuevo. NO SE HAN REASIGNADO SUS VÍNCULOS: es necesaria revisión antes de aplicar.`));for(const c of both){const refs=v17eRelationships.filter(x=>x[2]===c.table).flatMap(([child,field])=>(s.remote[child]||[]).filter(r=>String(r[field])===String(c.id)).map(r=>child+'.'+field));if(refs.length)out.append(v17hEl('p',`${c.table} ID ${c.id}: ${refs.length} referencia(s) de Edge potencialmente ambiguas: ${[...new Set(refs)].join(', ')}`))}}if(problems.length){const ul=v17hEl('ul');for(const p of problems.slice(0,25))ul.append(v17hEl('li',p));out.append(ul)}
- const counts=v17hEl('table');counts.className='r-table';const h=v17hEl('tr');for(const x of ['Tabla','Chrome','Candidato provisional'])h.append(v17hEl('th',x));counts.append(h);for(const table of Object.keys(V26_TABLES)){const tr=v17hEl('tr');for(const x of [table,(s.local[table]||[]).length,(candidate[table]||[]).length])tr.append(v17hEl('td',x));counts.append(tr)}out.append(counts);
- out.append(v17hEl('p','NO APLICABLE: la opción Conservar ambos es SOLO UNA SIMULACIÓN. No se reasignan automáticamente referencias ambiguas. No se verifican ediciones simultáneas ni borrados. No hay botón para guardar ni fusionar.'))}
+function v17iRefs(s){
+ const refs=[];
+ for(const c of s.conflicts){if(s.choices[v17hKey(c.table,c.id,'__both')]!=='both')continue;
+ for(const [child,field,parent] of v17eRelationships){if(parent!==c.table)continue;
+ const pk=V26_TABLES[child];
+ for(const row of s.remote[child]||[]){if(String(row[field])!==String(c.id))continue;
+ refs.push({parent:c.table,parentId:c.id,child,field,pk,row,id:row[pk],key:v17hKey(child,row[pk],field+'|'+c.table+'|'+c.id)});
+ }
+ }
+ }
+ return refs;
+}
+function v17hUpdate(){
+ const s=v17hReview,out=document.getElementById('v17h-status');if(!s||!out)return;
+ out.replaceChildren();let total=0,chosen=0;
+ for(const c of s.conflicts)for(const f of c.fields){total++;if(s.choices[v17hKey(c.table,c.id,f)]||s.choices[v17hKey(c.table,c.id,'__both')]==='both')chosen++}
+ out.append(v17hEl('h3',`Decisiones de campos: ${chosen} de ${total}`));
+ if(chosen!==total){out.append(v17hEl('p',`Quedan ${total-chosen} campos por revisar. No se prepara candidato.`));return}
+ const candidate=structuredClone(s.local), remaps=new Map();
+ for(const [table,pk] of Object.entries(V26_TABLES)){
+ candidate[table]=Array.isArray(candidate[table])?candidate[table]:[];
+ const map=new Map(candidate[table].map((r,i)=>[String(r[pk]),i]));
+ for(const u of s.unique.filter(u=>u.table===table&&u.side==='Edge')){if(!map.has(String(u.id))){candidate[table].push(structuredClone(u.row));map.set(String(u.id),candidate[table].length-1)}}
+ for(const c of s.conflicts.filter(c=>c.table===table)){
+ const i=map.get(String(c.id));if(i===undefined)continue;
+ if(s.choices[v17hKey(table,c.id,'__both')]==='both'){
+ const ids=candidate[table].map(r=>Number(r[pk]));const newId=Math.max(0,...ids)+1;
+ if(!Number.isSafeInteger(newId))throw Error('Sin ID seguro disponible');
+ const copy=structuredClone(c.b);copy[pk]=newId;candidate[table].push(copy);map.set(String(newId),candidate[table].length-1);
+ remaps.set(v17hKey(table,c.id,'new'),newId);continue;
+ }
+ for(const f of c.fields){if(s.choices[v17hKey(table,c.id,f)]==='edge'){
+ if(Object.prototype.hasOwnProperty.call(c.b,f))candidate[table][i][f]=structuredClone(c.b[f]);else delete candidate[table][i][f];
+ }}
+ }
+ }
+ const refs=v17iRefs(s);
+ if(refs.length){
+ const panel=v17hEl('div');panel.className='panel';panel.append(v17hEl('h3',`Reasignación de vínculos de Edge: ${refs.length}`));
+ panel.append(v17hEl('p','Elige dónde debe apuntar cada referencia. «Ambos» crea una segunda relación solo en tablas de unión; no duplica tareas. Las decisiones son provisionales.'));
+ const table=v17hEl('table');table.className='r-table';const head=v17hEl('tr');for(const x of ['Registro de Edge','Campo','Destino'])head.append(v17hEl('th',x));table.append(head);
+ for(const ref of refs){const tr=v17hEl('tr');tr.append(v17hEl('td',`${ref.child} · ${ref.pk} ${ref.id}`),v17hEl('td',ref.field));
+ const td=v17hEl('td'),select=v17hEl('select');
+ const options=[['','Revisar más adelante'],['chrome','Proyecto original (Chrome)'],['edge','Copia conservada (Edge)']];
+ if(ref.child.endsWith('_join')||ref.child.endsWith('_Join'))options.push(['both','Vincular a ambos']);
+ for(const [value,label] of options){const opt=v17hEl('option',label);opt.value=value;select.append(opt)}
+ select.value=s.choices[ref.key]||'';select.addEventListener('change',()=>{s.choices[ref.key]=select.value;v17hUpdate()});td.append(select);tr.append(td);table.append(tr)
+ }
+ panel.append(table);out.append(panel);
+ }
+ let assigned=0;
+ for(const ref of refs){const decision=s.choices[ref.key];if(!decision)continue;assigned++;
+ const targetId=remaps.get(v17hKey(ref.parent,ref.parentId,'new'));
+ const row=(candidate[ref.child]||[]).find(r=>String(r[ref.pk])===String(ref.id));
+ if(!row)continue;
+ if(decision==='edge')row[ref.field]=targetId;
+ if(decision==='both'){
+ const copy=structuredClone(row);copy[ref.field]=targetId;
+ const ids=candidate[ref.child].map(r=>Number(r[ref.pk]));const next=Math.max(0,...ids)+1;
+ if(!Number.isSafeInteger(next))throw Error('Sin ID seguro disponible');copy[ref.pk]=next;
+ const exists=candidate[ref.child].some(r=>Object.keys(r).filter(k=>k!==ref.pk).every(k=>JSON.stringify(r[k])===JSON.stringify(copy[k])));
+ if(!exists)candidate[ref.child].push(copy);
+ }
+ }
+ out.append(v17hEl('p',`Vínculos revisados: ${assigned} de ${refs.length}.`));
+ const problems=v17eAnalyze(candidate).issues;
+ out.append(v17hEl('p',problems.length?'REVISAR: el candidato provisional tiene problemas de integridad.':'Vista previa provisional: no se detectaron problemas en las relaciones comprobadas.'));
+ if(problems.length){const ul=v17hEl('ul');for(const p of problems.slice(0,25))ul.append(v17hEl('li',p));out.append(ul)}
+ const counts=v17hEl('table');counts.className='r-table';const h=v17hEl('tr');for(const x of ['Tabla','Chrome','Candidato provisional'])h.append(v17hEl('th',x));counts.append(h);
+ for(const table of Object.keys(V26_TABLES)){const tr=v17hEl('tr');for(const x of [table,(s.local[table]||[]).length,(candidate[table]||[]).length])tr.append(v17hEl('td',x));counts.append(tr)}out.append(counts);
+ if(assigned!==refs.length)out.append(v17hEl('p','PENDIENTE: faltan decisiones sobre referencias; el candidato no está listo.'));
+ else out.append(v17hEl('p','Las referencias seleccionadas se reflejan en la vista previa. Esto NO demuestra que la identidad de los registros ni las ediciones simultáneas sean correctas.'));
+ out.append(v17hEl('p','NO APLICABLE: simulación únicamente. No se guardan decisiones, no se exporta ni se fusiona. No se comprueban eliminaciones ni todas las referencias posibles. Conserva ambas copias cifradas originales.'));
+}
 const v17hPreviousDataPage=dataPage;dataPage=function(){return v17hPreviousDataPage()+v17hPanel()};
 
 </script>
