@@ -1267,7 +1267,7 @@ function v17iRefs(s){
 }
 function v17hUpdate(){
  const s=v17hReview,out=document.getElementById('v17h-status');if(!s||!out)return;
- out.replaceChildren();let total=0,chosen=0;
+ out.replaceChildren();s.v17kCandidate=null;s.v17kReady=false;let total=0,chosen=0;
  for(const c of s.conflicts)for(const f of c.fields){total++;if(s.choices[v17hKey(c.table,c.id,f)]||s.choices[v17hKey(c.table,c.id,'__both')]==='both')chosen++}
  out.append(v17hEl('h3',`Decisiones de campos: ${chosen} de ${total}`));
  if(chosen!==total){out.append(v17hEl('p',`Quedan ${total-chosen} campos por revisar. No se prepara candidato.`));return}
@@ -1319,6 +1319,7 @@ function v17hUpdate(){
  }
  out.append(v17hEl('p',`Vínculos revisados: ${assigned} de ${refs.length}.`));
  const problems=v17eAnalyze(candidate).issues;
+ s.v17kCandidate=structuredClone(candidate);s.v17kReady=assigned===refs.length&&!problems.length;
  out.append(v17hEl('p',problems.length?'REVISAR: el candidato provisional tiene problemas de integridad.':'Vista previa provisional: no se detectaron problemas en las relaciones comprobadas.'));
  if(problems.length){const ul=v17hEl('ul');for(const p of problems.slice(0,25))ul.append(v17hEl('li',p));out.append(ul)}
  const counts=v17hEl('table');counts.className='r-table';const h=v17hEl('tr');for(const x of ['Tabla','Chrome','Candidato provisional'])h.append(v17hEl('th',x));counts.append(h);
@@ -1387,4 +1388,72 @@ v17hRender=function(){
 
 const v17hPreviousDataPage=dataPage;dataPage=function(){return v17hPreviousDataPage()+v17hPanel()};
 
+
+// 17K: explicitly guarded, local-only commit. Original ciphertext is retained in memory
+// until the replacement ciphertext has been authenticated and written successfully.
+let v17kBusy=false;
+function v17kStatus(message){const el=document.getElementById('v17k-status');if(el)el.textContent=message}
+function v17kDownload(raw,name){const url=URL.createObjectURL(new Blob([raw],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000)}
+function v17kEligible(){
+ const s=v17hReview;if(!s||!s.v17kReady||!s.v17kCandidate)throw Error('La revisión o la integridad del candidato no está completa.');
+ const issues=v17eAnalyze(s.v17kCandidate).issues;if(issues.length)throw Error('Integridad pendiente: '+issues.slice(0,3).join('; '));
+ const existing=v17eAnalyze(s.local).issues;if(existing.length)throw Error('La base original contiene problemas.');
+ return s;
+}
+async function v17kCommit(){
+ if(v17kBusy)return;v17kBusy=true;
+ const button=document.getElementById('v17k-commit');if(button)button.disabled=true;
+ let original=null;
+ try{
+  const s=v17kEligible();await saveQueue;
+  if(!v23Key||!v23Salt)throw Error('La base local está bloqueada.');
+  original=localStorage.getItem(KEY);if(!original)throw Error('No existe copia cifrada local.');
+  validateV23(JSON.parse(original));
+  const originalData=await v23Open(JSON.parse(original),v23Key);
+  if(await v17jDigest(originalData)!==await v17jDigest(s.local))throw Error('Chrome cambió desde la comparación. Repite la revisión.');
+  if(!document.getElementById('v17k-backup-ok')?.checked)throw Error('Primero descarga y conserva la copia de seguridad y confirma la casilla.');
+  if(!confirm('ÚLTIMA CONFIRMACIÓN: reemplazar SOLO la base local de PRUEBAS con el candidato revisado. OneDrive no cambiará. ¿Continuar?'))throw Error('Cancelado sin cambios.');
+  const expected=await v17jDigest(s.v17kCandidate);
+  const env=await v23Seal(s.v17kCandidate,v23Key,v23Salt);
+  const opened=await v23Open(env,v23Key);
+  if(await v17jDigest(opened)!==expected)throw Error('No coincide la verificación del cifrado nuevo.');
+  if(v17eAnalyze(opened).issues.length)throw Error('Falló la verificación de relaciones.');
+  if(localStorage.getItem(KEY)!==original)throw Error('La base local cambió antes de guardar.');
+  localStorage.setItem(KEY,JSON.stringify(env));
+  const stored=localStorage.getItem(KEY);
+  if(!stored||await v17jDigest(await v23Open(validateV23(JSON.parse(stored)),v23Key))!==expected)throw Error('Falló la verificación posterior a guardar.');
+  db=structuredClone(opened);v17hReview=null;
+  // A merge is a new local branch, not a verified OneDrive descendant.
+  localStorage.removeItem(V24_BASE);
+  v17kStatus('Fusión local de pruebas guardada y verificada. OneDrive no se ha modificado. Revisa las listas y exporta otra copia cifrada.');
+  alert('17K: fusión LOCAL guardada y verificada. OneDrive permanece intacto.');
+ }catch(e){
+  if(original!==null&&localStorage.getItem(KEY)!==original){
+   try{localStorage.setItem(KEY,original);v17kStatus('ERROR: se restauró el cifrado local anterior. '+e.message)}
+   catch(rollback){v17kStatus('ERROR GRAVE: no se pudo restaurar automáticamente. Usa la copia de seguridad descargada. '+rollback.message)}
+  }else v17kStatus('Sin cambios: '+e.message);
+ }finally{v17kBusy=false;if(button)button.disabled=false}
+}
+async function v17kBackup(){
+ try{const s=v17kEligible();await saveQueue;
+  const raw=localStorage.getItem(KEY);validateV23(JSON.parse(raw));
+  if(await v17jDigest(await v23Open(JSON.parse(raw),v23Key))!==await v17jDigest(s.local))throw Error('La base Chrome cambió. Repite la comparación.');
+  v17kDownload(raw,'SEGURIDAD_ANTES_DE_FUSION_17K_CIFRADA.json');
+  v17kStatus('Descarga iniciada. Comprueba que el archivo está en Descargas antes de confirmar.');
+ }catch(e){v17kStatus('No se pudo preparar la copia: '+e.message)}
+}
+const v17kPreviousUpdate=v17hUpdate;
+v17hUpdate=function(){
+ v17kPreviousUpdate();const s=v17hReview,out=document.getElementById('v17h-status');if(!s||!out)return;
+ const panel=document.createElement('div');panel.className='panel';panel.style.border='2px solid #176e9e';
+ const title=v17hEl('h3','17K · Fusión local de pruebas con recuperación');panel.append(title);
+ panel.append(v17hEl('p','Solo datos ficticios. Se requiere completar todas las decisiones y relaciones, verificar las 12 tablas, descargar una copia cifrada original y confirmar explícitamente. No envía ni sobrescribe OneDrive.'));
+ if(!s.v17kReady){panel.append(v17hEl('p','Bloqueado: faltan decisiones o hay problemas en las relaciones comprobadas.'));out.append(panel);return}
+ const backup=document.createElement('button');backup.className='btn';backup.textContent='1. Descargar copia cifrada de seguridad';backup.addEventListener('click',v17kBackup);panel.append(backup);
+ const label=document.createElement('label');label.style.cssText='display:block;margin:12px 0';const check=document.createElement('input');check.type='checkbox';check.id='v17k-backup-ok';label.append(check,document.createTextNode(' He comprobado que la copia cifrada de seguridad está descargada y guardada.'));panel.append(label);
+ const commit=document.createElement('button');commit.className='btn primary';commit.id='v17k-commit';commit.textContent='2. Guardar fusión SOLO en este navegador';commit.addEventListener('click',v17kCommit);panel.append(commit);
+ const status=document.createElement('p');status.id='v17k-status';status.setAttribute('aria-live','polite');panel.append(status);
+ panel.append(v17hEl('p','Limitación: se verifican las 11 relaciones identificadas, no la identidad real entre registros ni los borrados. No uses datos reales hasta completar las pruebas de restauración y sincronización.'));
+ out.append(panel);
+};
 </script>
