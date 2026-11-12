@@ -1178,3 +1178,33 @@ async function v28PreviewCloud(){
 }
 
 </script>
+
+<script>
+// 17F: read-only cross-copy preflight. No merge, persistence or upload.
+let v17fOther=null;
+function v17fPanel(){return `<div class="panel" style="border:2px solid #176e9e"><h2>17F · Comparación completa de Chrome y Edge (12 tablas)</h2><p>Selecciona una copia CIFRADA del otro navegador. Se comprueban ambas bases, se cuentan diferencias y se detectan colisiones de ID. <strong>Solo lectura: no fusiona, restaura, guarda ni envía datos.</strong></p><label class="btn">Seleccionar copia CIFRADA <input type="file" accept=".json,application/json" style="display:none" onchange="v17fLoad(this)"></label><div id="v17f-result" aria-live="polite">Esperando archivo.</div><p class="small muted">La coincidencia de un ID no demuestra identidad. Las ausencias no se interpretan como eliminaciones. Para resolver ediciones simultáneas se requiere una base común verificable; no se autoriza aún la fusión.</p></div>`}
+async function v17fLoad(input){const el=document.getElementById('v17f-result');if(!el)return;el.textContent='Comprobando copia...';v17fOther=null;try{
+ await saveQueue;const file=input.files?.[0];if(!file)return;if(file.size>20000000)throw Error('Archivo demasiado grande');
+ const env=validateV23(JSON.parse(await file.text()));const password=prompt('Contraseña de la copia cifrada:');if(password===null){el.textContent='Cancelado, sin cambios.';return}
+ const other=await v23Open(env,await v23Derive(password,v23Unb64(env.salt)));
+ const localCheck=v17eAnalyze(db),remoteCheck=v17eAnalyze(other);
+ const issues=[...localCheck.issues.map(x=>'Local: '+x),...remoteCheck.issues.map(x=>'Copia: '+x)];
+ const summary=[];let totalSame=0,totalDifferent=0,totalOnlyLocal=0,totalOnlyRemote=0;
+ for(const [table,pk] of Object.entries(V26_TABLES)){
+  const a=Array.isArray(db[table])?db[table]:[],b=Array.isArray(other[table])?other[table]:[];
+  const am=new Map(a.map(r=>[String(r[pk]),r])),bm=new Map(b.map(r=>[String(r[pk]),r]));
+  let same=0,different=0,onlyLocal=0,onlyRemote=0;
+  for(const [id,row] of am){if(!bm.has(id))onlyLocal++;else if(v26Same(row,bm.get(id)))same++;else different++}
+  for(const id of bm.keys())if(!am.has(id))onlyRemote++;
+  totalSame+=same;totalDifferent+=different;totalOnlyLocal+=onlyLocal;totalOnlyRemote+=onlyRemote;
+  summary.push({table,same,different,onlyLocal,onlyRemote});
+ }
+ el.replaceChildren();const h=document.createElement('h3');h.textContent=issues.length?'REVISAR: '+issues.length+' problema(s) de integridad':'Comparación de las 12 tablas completada';el.append(h);
+ const para=document.createElement('p');para.textContent=`Mismo ID y contenido: ${totalSame} · Mismo ID con diferencias: ${totalDifferent} · Solo local: ${totalOnlyLocal} · Solo copia: ${totalOnlyRemote}`;el.append(para);
+ const t=document.createElement('table');t.className='r-table';t.innerHTML='<thead><tr><th>Tabla</th><th>Iguales</th><th>ID en conflicto</th><th>Solo local</th><th>Solo copia</th></tr></thead>';
+ const body=document.createElement('tbody');for(const item of summary){const tr=document.createElement('tr');for(const value of [item.table,item.same,item.different,item.onlyLocal,item.onlyRemote]){const td=document.createElement('td');td.textContent=String(value);tr.append(td)}body.append(tr)}t.append(body);el.append(t);
+ if(issues.length){const ul=document.createElement('ul');for(const issue of issues.slice(0,30)){const li=document.createElement('li');li.textContent=issue;ul.append(li)}el.append(ul)}
+ const warning=document.createElement('p');warning.textContent='DIAGNÓSTICO ÚNICAMENTE. Las diferencias de ID requieren revisión de identidad, relaciones y una base común. No se ha modificado ningún dato.';el.append(warning);
+ }catch(e){el.textContent='No se pudo comparar. Ningún dato modificado. '+e.message}}
+const v17fPreviousDataPage=dataPage;dataPage=function(){return v17fPreviousDataPage()+v17fPanel()};
+</script>
