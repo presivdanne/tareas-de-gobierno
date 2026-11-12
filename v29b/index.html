@@ -1327,6 +1327,64 @@ function v17hUpdate(){
  else out.append(v17hEl('p','Las referencias seleccionadas se reflejan en la vista previa. Esto NO demuestra que la identidad de los registros ni las ediciones simultáneas sean correctas.'));
  out.append(v17hEl('p','NO APLICABLE: simulación únicamente. No se guardan decisiones, no se exporta ni se fusiona. No se comprueban eliminaciones ni todas las referencias posibles. Conserva ambas copias cifradas originales.'));
 }
+
+// 17J: portable, source-bound review decisions. No database merge or persistence.
+async function v17jDigest(value){
+ const bytes=new TextEncoder().encode(JSON.stringify(value));
+ const hash=await crypto.subtle.digest('SHA-256',bytes);
+ return Array.from(new Uint8Array(hash),x=>x.toString(16).padStart(2,'0')).join('');
+}
+async function v17jSourceHashes(s){
+ return {chrome:await v17jDigest(s.local),edge:await v17jDigest(s.remote)};
+}
+async function v17jExport(){
+ const s=v17hReview;if(!s)return;
+ try{
+  const payload={format:'tareas-v29b-17j-review-only',version:1,sourceHashes:await v17jSourceHashes(s),choices:{...s.choices},createdAt:new Date().toISOString(),warning:'DECISIONS ONLY. Not a merged database. Never restore as a backup.'};
+  const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Revision_17J_DECISIONES_NO_FUSION.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  v17jMessage('Decisiones descargadas. Este archivo NO contiene una base fusionada.');
+ }catch(e){v17jMessage('No se pudo exportar: '+e.message)}
+}
+async function v17jImport(input){
+ const s=v17hReview,file=input.files?.[0];if(!s||!file)return;
+ try{
+  if(file.size>1000000)throw Error('Archivo demasiado grande');
+  const payload=JSON.parse(await file.text());
+  if(payload.format!=='tareas-v29b-17j-review-only'||payload.version!==1)throw Error('No es un archivo de decisiones 17J');
+  const hashes=await v17jSourceHashes(s);
+  if(hashes.chrome!==payload.sourceHashes?.chrome||hashes.edge!==payload.sourceHashes?.edge)throw Error('Las copias Chrome/Edge no coinciden exactamente con las usadas al tomar las decisiones. No se ha importado nada.');
+  const allowed=new Set();
+  for(const c of s.conflicts){
+   allowed.add(v17hKey(c.table,c.id,'__both'));
+   for(const f of c.fields)allowed.add(v17hKey(c.table,c.id,f));
+  }
+  for(const ref of v17iRefs({...s,choices:payload.choices||{}}))allowed.add(ref.key);
+  const choices=payload.choices;
+  if(!choices||typeof choices!=='object'||Array.isArray(choices))throw Error('Decisiones inválidas');
+  for(const [k,v] of Object.entries(choices)){
+   if(!allowed.has(k)||!['','both','chrome','edge'].includes(v))throw Error('Opción de revisión no reconocida');
+  }
+  s.choices={...choices};v17hRender();v17jMessage('Decisiones restauradas para estas mismas copias. Sigue siendo una simulación: no se han fusionado datos.');
+ }catch(e){v17jMessage('Importación rechazada: '+e.message)}
+ finally{input.value=''}
+}
+function v17jMessage(message){const el=document.getElementById('v17j-message');if(el)el.textContent=message}
+const v17jOriginalRender=v17hRender;
+v17hRender=function(){
+ v17jOriginalRender();
+ const out=document.getElementById('v17h-result');if(!out||!v17hReview)return;
+ const panel=document.createElement('div');panel.className='panel';panel.style.border='2px solid #176e9e';
+ const title=document.createElement('h3');title.textContent='17J · Guardar y recuperar decisiones de revisión (sin fusionar)';panel.append(title);
+ const note=document.createElement('p');note.textContent='Descarga únicamente tus elecciones para retomarlas después. Al recuperarlas se exige que las dos copias de datos sean exactamente las mismas. No contiene contraseñas ni datos de las tablas; no modifica las bases ni OneDrive.';panel.append(note);
+ const button=document.createElement('button');button.className='btn primary';button.textContent='Descargar decisiones 17J';button.addEventListener('click',v17jExport);panel.append(button);
+ const label=document.createElement('label');label.className='btn';label.style.marginLeft='8px';label.textContent='Recuperar decisiones 17J';
+ const input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.style.display='none';input.addEventListener('change',()=>v17jImport(input));label.append(input);panel.append(label);
+ const status=document.createElement('p');status.id='v17j-message';status.setAttribute('aria-live','polite');panel.append(status);
+ const warning=document.createElement('p');warning.className='small muted';warning.textContent='NO AUTORIZADO PARA FUSIONAR. Las decisiones importadas no verifican la identidad de los registros, las ediciones simultáneas, los borrados ni todas las relaciones.';panel.append(warning);
+ out.prepend(panel);
+};
+
 const v17hPreviousDataPage=dataPage;dataPage=function(){return v17hPreviousDataPage()+v17hPanel()};
 
 </script>
