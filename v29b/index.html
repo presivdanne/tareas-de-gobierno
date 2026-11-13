@@ -1241,9 +1241,21 @@ async function v17l111Check(){
  const expectedRemote='79ab55c2053daa210258519637a0c6a7ad6e44cdf12e06820a8d643907410d31';
  const rh=await v24Hash(remote);if(rh!==expectedRemote)throw Error('El respaldo REMOTO no coincide con la huella verificada.');
  await saveQueue;const raw=localStorage.getItem(KEY);if(!raw)throw Error('Falta copia cifrada local.');
- const lh=await v24Hash(local),current=await v24Hash(raw);
- if(lh!==current)throw Error('El respaldo LOCAL difiere de la copia local actual. No restaures nada.');
- say('APROBADA: ambas copias cifradas coinciden con las referencias esperadas.');
+ if(!v23Key)throw Error('Desbloquea la base local antes de verificar.');
+ const envLocal=validateV23(JSON.parse(local));
+ const password=prompt('Contraseña del respaldo LOCAL (solo en este navegador):');
+ if(password===null)throw Error('Comprobación cancelada.');
+ const localKey=await v23Derive(password,v23Unb64(envLocal.salt));
+ const backupData=await v23Open(envLocal,localKey);
+ const backupHash=await v17jDigest(backupData);
+ const diskData=await v23Open(validateV23(JSON.parse(raw)),v23Key);
+ const diskHash=await v17jDigest(diskData);
+ const liveHash=await v17jDigest(db);
+ const expected='046e9ba768397b7046578912d0d0a617dfc1027b0283b06e6d040a6e71fb642c';
+ if(backupHash!==expected||diskHash!==expected||liveHash!==expected)throw Error('El contenido descifrado del respaldo LOCAL o de la base actual no coincide con la fusión verificada.');
+ const lh=await v24Hash(local);
+ say('Huella de datos descifrados LOCAL: '+backupHash);
+ say('APROBADA: el respaldo LOCAL contiene los mismos datos verificados y el REMOTO coincide con la huella cifrada esperada.');
  say('Huella del respaldo LOCAL: '+lh);say('Huella del respaldo REMOTO: '+rh);
  say('SOLO LECTURA. No se ha enviado nada a OneDrive.');
  }catch(e){say('BLOQUEADO: '+e.message+' No se ha enviado nada.');}
@@ -1571,7 +1583,7 @@ function v17lPanel(){
  <p class="small muted">La revisión de diferencias usa la interfaz de fusión existente y no autoriza por sí sola la subida. La fusión completa de las doce tablas sigue siendo experimental.</p>
  <label><input type="checkbox" id="v17l-backups" onchange="v17lUpdate()"> He guardado por separado los respaldos cifrados LOCAL y REMOTO.</label>
  <div class="toolbar"><button class="btn primary" id="v17l-upload" onclick="v17lUpload()" disabled>5. Enviar base cifrada con protección de versión</button></div>
- <div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.10 · Preparación del envío protegido</h3><p>Comprueba las huellas y los nombres de proyectos antes de cualquier envío. Solo lectura.</p><button class="btn primary" type="button" onclick="v17l10Preflight()">Ejecutar comprobación final (solo lectura)</button><div id="v17l10-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.11.1 · Preparación de respaldos (solo lectura)</h3><p>Selecciona las dos copias cifradas guardadas. Este paso comprueba sus huellas; no envía datos a OneDrive.</p><label>Respaldo LOCAL cifrado <input type="file" id="v17l111-local" accept=".json,application/json"></label><label>Respaldo REMOTO cifrado <input type="file" id="v17l111-remote" accept=".json,application/json"></label><p><button class="btn primary" type="button" onclick="v17l111Check()">Comprobar respaldos (sin enviar)</button></p><div id="v17l111-result" aria-live="polite"></div></div><p class="small muted">El envío continúa bloqueado hasta probar esta pantalla en Edge.</p><p class="small muted">El envío usa el control existente de huella remota verificada y ETag (If-Match). Si no existe una base remota vinculada y verificada, se BLOQUEA. No se omiten estas protecciones.</p>
+ <div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.10 · Preparación del envío protegido</h3><p>Comprueba las huellas y los nombres de proyectos antes de cualquier envío. Solo lectura.</p><button class="btn primary" type="button" onclick="v17l10Preflight()">Ejecutar comprobación final (solo lectura)</button><div id="v17l10-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.11.2 · Verificación de contenido de respaldos (solo lectura)</h3><p>Selecciona las dos copias cifradas guardadas. Este paso compara los datos descifrados del respaldo LOCAL y la base actual, no los bytes cifrados. No envía datos a OneDrive.</p><label>Respaldo LOCAL cifrado <input type="file" id="v17l111-local" accept=".json,application/json"></label><label>Respaldo REMOTO cifrado <input type="file" id="v17l111-remote" accept=".json,application/json"></label><p><button class="btn primary" type="button" onclick="v17l111Check()">Comprobar respaldos (sin enviar)</button></p><div id="v17l111-result" aria-live="polite"></div></div><p class="small muted">El envío continúa bloqueado hasta probar esta pantalla en Edge.</p><p class="small muted">El envío usa el control existente de huella remota verificada y ETag (If-Match). Si no existe una base remota vinculada y verificada, se BLOQUEA. No se omiten estas protecciones.</p>
  <button class="btn" onclick="nav('datos')">Volver a Datos y copias</button></div>`;
 }
 // 17L.5: Evidence of which two data sources are actually in the live review.
