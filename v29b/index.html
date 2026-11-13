@@ -1483,9 +1483,9 @@ v17hUpdate=function(){
 <script>
 // 17L: Explicit OneDrive V29b transfer workflow. No implicit import, overwrite, or merge.
 function v17lPanel(){
- document.getElementById('title').textContent='17L.5 · OneDrive — descarga verificada';
+ document.getElementById('title').textContent='17L.6 · OneDrive — verificación histórica';
  document.getElementById('content').innerHTML=`<div class="panel" style="border:2px solid #176e9e">
- <h2>17L.5 · OneDrive — descarga verificada</h2>
+ <h2>17L.6 · OneDrive — verificación histórica</h2>
  <p><strong>Solo datos ficticios.</strong> Esta pantalla utiliza exclusivamente <code>${V24_REMOTE}</code> en la carpeta de aplicaciones. <strong>No es el archivo antiguo de 17A.</strong> No existe sincronización automática.</p>
  <p id="v17l-status" class="muted" role="status">No se ha comprobado el archivo remoto.</p>
  <div class="toolbar"><button class="btn" onclick="v24Login()">Conectar con Microsoft</button><button class="btn" onclick="v17lInspect()">1. Comprobar archivo remoto V29b</button><button class="btn" onclick="v17lDownload()">2. Descargar respaldo remoto (sin restaurar)</button></div>
@@ -1508,7 +1508,7 @@ function v17l4RenderProof(){
  if(!out||!p||p.review!==v17hReview)return;
  document.getElementById('v17l4-proof')?.remove();
  const box=document.createElement('section');box.id='v17l4-proof';box.className='panel';box.style.cssText='border:2px solid #176e9e;background:#f7fafc';
- const title=document.createElement('h3');title.textContent='17L.5 · Fuentes de esta comparación (12 tablas)';box.append(title);
+ const title=document.createElement('h3');title.textContent='17L.6 · Fuentes de esta comparación (12 tablas)';box.append(title);
  const description=document.createElement('p');description.textContent='Origen A = base LOCAL abierta en este navegador (Edge). Origen B = copia REMOTA V29b descargada de OneDrive. Los nombres Chrome y Edge en los controles antiguos corresponden respectivamente a A y B SOLO en esta revisión vinculada.';box.append(description);
  const table=document.createElement('table');table.className='r-table';
  const head=document.createElement('tr');for(const label of ['Tabla','LOCAL (Edge)','REMOTO (OneDrive)']){const cell=document.createElement('th');cell.textContent=label;head.append(cell)}table.append(head);
@@ -1517,9 +1517,45 @@ function v17l4RenderProof(){
  const version=document.createElement('p');version.style.cssText='overflow-wrap:anywhere';version.textContent='Versión remota comprobada (ETag): '+p.etag;box.append(version);
  const caution=document.createElement('p');caution.textContent='Las huellas identifican las copias de esta revisión, pero NO demuestran que los registros con igual ID sean la misma entidad. No autoriza todavía una subida ni sustituye la revisión de decisiones y vínculos.';box.append(caution);
 
- const auditButton=document.createElement('button');auditButton.className='btn';auditButton.textContent='17L.5 · Auditar si la fusión local ya incluye OneDrive (solo lectura)';auditButton.addEventListener('click',v17l5Audit);box.append(auditButton);
+ const auditButton=document.createElement('button');auditButton.className='btn';auditButton.textContent='17L.6 · Auditar si la fusión local ya incluye OneDrive (solo lectura)';auditButton.addEventListener('click',v17l5Audit);box.append(auditButton);
  const auditOutput=document.createElement('div');auditOutput.id='v17l5-audit';auditOutput.setAttribute('aria-live','polite');box.append(auditOutput);
+ const history=document.createElement('div');history.id='v17l6-history';history.className='panel';history.style.cssText='margin-top:14px;border:1px solid #8ea6ba';history.innerHTML=`<h3>17L.6 · Verificar evidencias de 17J y 17K (solo lectura)</h3><p>Selecciona el archivo de decisiones 17J y la copia cifrada ANTES de 17K. Opcionalmente, selecciona también la segunda copia original. Ningún archivo ni contraseña se envía a servidores. No se restaurará ningún dato.</p><label>Decisiones 17J <input type="file" id="v17l6-decisions" accept=".json,application/json"></label><label>Copia cifrada antes de 17K <input type="file" id="v17l6-before" accept=".json,application/json"></label><label>Segunda copia original (opcional) <input type="file" id="v17l6-second" accept=".json,application/json"></label><label>Contraseña de las copias (solo en este dispositivo) <input type="password" id="v17l6-pass" autocomplete="off"></label><button class="btn" type="button" id="v17l6-check">Comprobar huellas sin modificar datos</button><div id="v17l6-results" aria-live="polite"></div>`;box.append(history);history.querySelector('#v17l6-check').addEventListener('click',v17l6Verify);
  out.prepend(box);
+}
+
+// 17L.6 — Read-only historical evidence verification. Never establishes V24_BASE.
+async function v17l6Verify(){
+ const out=document.getElementById('v17l6-results'),button=document.getElementById('v17l6-check');
+ if(!out||!button)return;out.replaceChildren();button.disabled=true;
+ const add=(tag,t)=>{const el=document.createElement(tag);el.textContent=t;out.append(el)};
+ try{
+  const proof=v17l2ReviewProof;
+  if(!proof||proof.review!==v17hReview)throw Error('La revisión remota verificada ya no está activa. Repite el paso 4.');
+  const decFile=document.getElementById('v17l6-decisions').files[0],beforeFile=document.getElementById('v17l6-before').files[0],otherFile=document.getElementById('v17l6-second').files[0];
+  if(!decFile||!beforeFile)throw Error('Selecciona las decisiones 17J y la copia anterior a 17K.');
+  for(const f of [decFile,beforeFile,otherFile].filter(Boolean))if(f.size>20000000)throw Error('Archivo demasiado grande.');
+  const decision=JSON.parse(await decFile.text());
+  if(decision.format!=='tareas-v29b-17j-review-only'||decision.version!==1||!decision.sourceHashes||!decision.choices)throw Error('El archivo de decisiones 17J no es válido.');
+  const pass=document.getElementById('v17l6-pass').value;
+  if(!pass)throw Error('Introduce la contraseña de la copia cifrada.');
+  const read=async(file)=>{const env=validateV23(JSON.parse(await file.text()));const key=await v23Derive(pass,v23Unb64(env.salt));return v23Open(env,key)};
+  const before=await read(beforeFile),beforeHash=await v17jDigest(before);
+  const expected=decision.sourceHashes;
+  const identify=h=>h===expected.chrome?'Chrome original 17J':h===expected.edge?'Edge original 17J':'No coincide con las dos fuentes 17J';
+  add('h4','Resultado de la comprobación histórica');
+  add('p','Copia ANTES de 17K: '+identify(beforeHash)+' · SHA-256 datos: '+beforeHash);
+  let secondHash=null;
+  if(otherFile){const other=await read(otherFile);secondHash=await v17jDigest(other);add('p','Segunda copia original: '+identify(secondHash)+' · SHA-256 datos: '+secondHash)}
+  const localHash=await v17jDigest(db);
+  if(localHash!==proof.localDigest)throw Error('La base LOCAL cambió desde la comparación. Repite la revisión.');
+  add('p','LOCAL actual: '+localHash+' · REMOTO actual: '+proof.remoteDigest);
+  const sourceSet=new Set([beforeHash,secondHash].filter(Boolean));
+  const both=sourceSet.has(expected.chrome)&&sourceSet.has(expected.edge);
+  if(both){add('p','Se han identificado las DOS fuentes originales de 17J. Las decisiones históricas se pueden vincular a esas fuentes.');}
+  else add('p','Falta al menos una de las dos fuentes originales de 17J. Para reconstruir y verificar la fusión harán falta ambas.');
+  add('p','Decisión histórica de conservar ambos proyectos: '+(decision.choices['["Proyectos","3","__both"]']==='both'?'Sí':'No registrada')+'.');
+  add('p','RESULTADO: EVIDENCIA PARCIAL, SIN CERTIFICACIÓN DE LA FUSIÓN. La coincidencia de huellas acredita la identidad de las fuentes, pero todavía no prueba que el resultado actual corresponda a todas las decisiones. No se ha modificado ni subido ningún dato.');
+ }catch(e){add('p','Comprobación detenida: '+(e?.message||String(e))+'. No se modificó ningún dato.')}finally{document.getElementById('v17l6-pass').value='';button.disabled=false}
 }
 // 17L.5: Conservative, source-bound read-only audit. A two-way comparison
 // cannot establish ancestry, identity or that the previous merge was correct.
