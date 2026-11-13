@@ -1483,32 +1483,48 @@ v17hUpdate=function(){
 <script>
 // 17L: Explicit OneDrive V29b transfer workflow. No implicit import, overwrite, or merge.
 function v17lPanel(){
- document.getElementById('title').textContent='17L.2 · OneDrive — conciliación verificada';
+ document.getElementById('title').textContent='17L.3 · OneDrive — descarga verificada';
  document.getElementById('content').innerHTML=`<div class="panel" style="border:2px solid #176e9e">
- <h2>17L.2 · OneDrive — conciliación verificada</h2>
+ <h2>17L.3 · OneDrive — descarga verificada</h2>
  <p><strong>Solo datos ficticios.</strong> Esta pantalla utiliza exclusivamente <code>${V24_REMOTE}</code> en la carpeta de aplicaciones. <strong>No es el archivo antiguo de 17A.</strong> No existe sincronización automática.</p>
  <p id="v17l-status" class="muted" role="status">No se ha comprobado el archivo remoto.</p>
  <div class="toolbar"><button class="btn" onclick="v24Login()">Conectar con Microsoft</button><button class="btn" onclick="v17lInspect()">1. Comprobar archivo remoto V29b</button><button class="btn" onclick="v17lDownload()">2. Descargar respaldo remoto (sin restaurar)</button></div>
  <div id="v17l-info" class="panel" style="background:#f7fafc"><p>Primero comprueba y descarga el archivo remoto. La descarga no sustituye los datos locales.</p></div>
- <div class="toolbar"><button class="btn" onclick="v17lExportLocal()">3. Exportar respaldo LOCAL cifrado</button><button class="btn" onclick="v17lReview()">4. Revisar OneDrive con las 12 tablas (17L.2)</button></div>
+ <div class="toolbar"><button class="btn" onclick="v17lExportLocal()">3. Exportar respaldo LOCAL cifrado</button><button class="btn" onclick="v17lReview()">4. Revisar OneDrive con las 12 tablas (17L.3)</button></div>
  <p class="small muted">La revisión de diferencias usa la interfaz de fusión existente y no autoriza por sí sola la subida. La fusión completa de las doce tablas sigue siendo experimental.</p>
  <label><input type="checkbox" id="v17l-backups" onchange="v17lUpdate()"> He guardado por separado los respaldos cifrados LOCAL y REMOTO.</label>
  <div class="toolbar"><button class="btn primary" id="v17l-upload" onclick="v17lUpload()" disabled>5. Enviar base cifrada con protección de versión</button></div>
  <p class="small muted">El envío usa el control existente de huella remota verificada y ETag (If-Match). Si no existe una base remota vinculada y verificada, se BLOQUEA. No se omiten estas protecciones.</p>
  <button class="btn" onclick="nav('datos')">Volver a Datos y copias</button></div>`;
 }
+// 17L.3: Microsoft Graph /content redirects to a preauthenticated download URL.
+// Browser fetch of that redirect can fail under CORS. Obtain the URL from item
+// metadata and fetch it directly, without sending the bearer token to that host.
+async function v17lRemoteContent(meta){
+ const m=meta||await v24Meta();
+ if(!m)throw Error('No existe el archivo remoto V29b.');
+ const url=m['@microsoft.graph.downloadUrl'];
+ if(!url||!/^https:\/\//i.test(url))throw Error('OneDrive no proporcionó un enlace temporal de descarga. No se han modificado datos.');
+ let response;
+ try{response=await fetch(url,{method:'GET',cache:'no-store',redirect:'follow'});}
+ catch(e){throw Error('No se pudo descargar desde el enlace temporal de OneDrive (red/CORS): '+e.message+'. No se han modificado datos.');}
+ if(!response.ok)throw Error('Descarga remota rechazada (HTTP '+response.status+'). No se han modificado datos.');
+ const raw=await response.text();
+ try{validateV23(JSON.parse(raw));}catch(e){throw Error('El contenido descargado no es una copia cifrada válida: '+e.message);}
+ return raw;
+}
 let v17lRemoteChecked=null;
 function v17lStatus(s){const el=document.getElementById('v17l-status');if(el)el.textContent=s;}
 function v17lUpdate(){const b=document.getElementById('v17l-upload');if(b)b.disabled=!(v17lRemoteChecked&&document.getElementById('v17l-backups')?.checked&&localStorage.getItem(V24_BASE));}
 async function v17lInspect(){try{const m=await v24Meta();v17lRemoteChecked=m||null;const el=document.getElementById('v17l-info');if(!m){v17lStatus('No existe el archivo V29b. No se permite sobrescribir ni crear desde este procedimiento.');if(el)el.textContent='Archivo remoto V29b no encontrado.';v17lUpdate();return;}
- const raw=await v24Remote();const after=await v24Meta();if(after?.eTag!==m.eTag)throw Error('El archivo cambió durante la comprobación.');
+ const raw=await v17lRemoteContent(m);const after=await v24Meta();if(after?.eTag!==m.eTag)throw Error('El archivo cambió durante la comprobación.');
  const hash=await v24Hash(raw),baseline=localStorage.getItem(V24_BASE),localRaw=localStorage.getItem(KEY);
  if(el){el.replaceChildren();const p=document.createElement('p');p.textContent='Archivo: '+V24_REMOTE+' · '+m.size+' bytes · huella SHA-256: '+hash.slice(0,16)+'…';el.append(p);
  const p2=document.createElement('p');p2.textContent=baseline?(baseline===hash?'Referencia local: coincide con la copia remota verificada.':'Referencia local: NO coincide; envío bloqueado.'):'Referencia local: ausente; usa el paso 4 de 17L.2 y guarda la fusión local verificada.';el.append(p2);
  const p3=document.createElement('p');p3.textContent='Base local cifrada: '+(localRaw?'presente':'ausente')+'. No se ha importado ni modificado ningún dato.';el.append(p3)}
  v17lStatus('Archivo remoto comprobado. Guarda ambas copias antes de continuar.');v17lUpdate();
  }catch(e){v17lRemoteChecked=null;v17lStatus('No se pudo comprobar: '+e.message);v17lUpdate()}}
-async function v17lDownload(){try{const before=await v24Meta();if(!before)throw Error('No existe copia V29b en OneDrive.');const raw=await v24Remote();const after=await v24Meta();if(after?.eTag!==before.eTag)throw Error('La copia cambió durante la descarga.');const blob=new Blob([raw],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Respaldo_Remoto_V29b_17L_CIFRADO.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);v17lStatus('Descarga remota iniciada. Comprueba que se guardó el archivo. No se ha restaurado.');}catch(e){v17lStatus('Error de descarga: '+e.message)}}
+async function v17lDownload(){try{const before=await v24Meta();if(!before)throw Error('No existe copia V29b en OneDrive.');const raw=await v17lRemoteContent(before);const after=await v24Meta();if(after?.eTag!==before.eTag)throw Error('La copia cambió durante la descarga.');const blob=new Blob([raw],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Respaldo_Remoto_V29b_17L_CIFRADO.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);v17lStatus('Descarga remota iniciada. Comprueba que se guardó el archivo. No se ha restaurado.');}catch(e){v17lStatus('Error de descarga: '+e.message)}}
 async function v17lExportLocal(){try{await saveQueue;const raw=localStorage.getItem(KEY);if(!raw)throw Error('No existe copia local.');validateV23(JSON.parse(raw));const blob=new Blob([raw],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='Respaldo_Local_V29b_17L_CIFRADO.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);v17lStatus('Descarga local iniciada. Comprueba que se guardó el archivo.');}catch(e){v17lStatus('Error: '+e.message)}}
 async function v17lReview(){
  v17l2ReviewProof=null;
@@ -1517,7 +1533,7 @@ async function v17lReview(){
   if(!v23Key)throw Error('Desbloquea primero la base local.');
   const before=await v24Meta();
   if(!before||!v17lRemoteChecked||before.eTag!==v17lRemoteChecked.eTag)throw Error('El archivo remoto cambió. Compruébalo otra vez.');
-  const raw=await v24Remote();
+  const raw=await v17lRemoteContent(before);
   const hash=await v24Hash(raw),env=validateV23(JSON.parse(raw));
   const after=await v24Meta();
   if(after?.eTag!==before.eTag)throw Error('OneDrive cambió durante la lectura.');
@@ -1529,12 +1545,12 @@ async function v17lReview(){
   nav('datos');
   v17hPrepareReview(other);
   v17l2ReviewProof={review:v17hReview,hash,etag:before.eTag,localDigest:await v17jDigest(db)};
-  const info=document.createElement('p');info.style.fontWeight='bold';info.textContent='17L.2: revisión vinculada al archivo REMOTO V29b comprobado. Completa todas las decisiones, descarga seguridad y guarda la fusión local 17K para autorizar el envío protegido.';
+  const info=document.createElement('p');info.style.fontWeight='bold';info.textContent='17L.3: revisión vinculada al archivo REMOTO V29b comprobado. Completa todas las decisiones, descarga seguridad y guarda la fusión local 17K para autorizar el envío protegido.';
   document.getElementById('v17h-result')?.prepend(info);
  }catch(e){v17lStatus('Revisión 17L.2 bloqueada: '+e.message);alert('No se preparó la revisión: '+e.message)}
 }
 async function v17lUpload(){if(!v17lRemoteChecked||!document.getElementById('v17l-backups')?.checked)return v17lStatus('Faltan comprobaciones o respaldos.');
- try{const m=await v24Meta();if(!m||m.eTag!==v17lRemoteChecked.eTag)throw Error('La versión remota cambió. No se enviará nada.');const raw=await v24Remote(),base=localStorage.getItem(V24_BASE);if(!base||await v24Hash(raw)!==base)throw Error('No hay referencia remota verificada o ya no coincide. Revisa y guarda la fusión antes de enviar.');
+ try{const m=await v24Meta();if(!m||m.eTag!==v17lRemoteChecked.eTag)throw Error('La versión remota cambió. No se enviará nada.');const raw=await v17lRemoteContent(m),base=localStorage.getItem(V24_BASE);if(!base||await v24Hash(raw)!==base)throw Error('No hay referencia remota verificada o ya no coincide. Revisa y guarda la fusión antes de enviar.');
  if(!confirm('17L: ¿Continuar al envío manual de la copia LOCAL cifrada al archivo V29b? Solo datos ficticios.'))return;
  await v29bUploadSafe();v17lStatus(document.getElementById('v24-status')?.textContent||'El envío ha terminado. Comprueba el resultado en OneDrive V29b.');v17lRemoteChecked=null;v17lUpdate();
  }catch(e){v17lStatus('Envío BLOQUEADO: '+e.message)}}
