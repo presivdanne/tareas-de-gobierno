@@ -1230,6 +1230,25 @@ async function v17l8Audit(button){
  finally{const input=document.getElementById('v17l6-pass');if(input)input.value='';button.disabled=false}
 }
 </script>
+<script>
+async function v17l111Check(){
+ const out=document.getElementById('v17l111-result');out.replaceChildren();
+ const say=t=>{const p=document.createElement('p');p.textContent=t;out.append(p)};
+ try{
+ const lf=document.getElementById('v17l111-local').files[0],rf=document.getElementById('v17l111-remote').files[0];
+ if(!lf||!rf)throw Error('Selecciona ambos respaldos cifrados.');
+ const local=await lf.text(),remote=await rf.text();validateV23(JSON.parse(local));validateV23(JSON.parse(remote));
+ const expectedRemote='79ab55c2053daa210258519637a0c6a7ad6e44cdf12e06820a8d643907410d31';
+ const rh=await v24Hash(remote);if(rh!==expectedRemote)throw Error('El respaldo REMOTO no coincide con la huella verificada.');
+ await saveQueue;const raw=localStorage.getItem(KEY);if(!raw)throw Error('Falta copia cifrada local.');
+ const lh=await v24Hash(local),current=await v24Hash(raw);
+ if(lh!==current)throw Error('El respaldo LOCAL difiere de la copia local actual. No restaures nada.');
+ say('APROBADA: ambas copias cifradas coinciden con las referencias esperadas.');
+ say('Huella del respaldo LOCAL: '+lh);say('Huella del respaldo REMOTO: '+rh);
+ say('SOLO LECTURA. No se ha enviado nada a OneDrive.');
+ }catch(e){say('BLOQUEADO: '+e.message+' No se ha enviado nada.');}
+}
+</script>
 </body></html>
 <script>
 async function v28SeedCloud(){
@@ -1552,7 +1571,7 @@ function v17lPanel(){
  <p class="small muted">La revisión de diferencias usa la interfaz de fusión existente y no autoriza por sí sola la subida. La fusión completa de las doce tablas sigue siendo experimental.</p>
  <label><input type="checkbox" id="v17l-backups" onchange="v17lUpdate()"> He guardado por separado los respaldos cifrados LOCAL y REMOTO.</label>
  <div class="toolbar"><button class="btn primary" id="v17l-upload" onclick="v17lUpload()" disabled>5. Enviar base cifrada con protección de versión</button></div>
- <div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.10 · Preparación del envío protegido</h3><p>Comprueba las huellas y los nombres de proyectos antes de cualquier envío. Solo lectura.</p><button class="btn primary" type="button" onclick="v17l10Preflight()">Ejecutar comprobación final (solo lectura)</button><div id="v17l10-result" aria-live="polite"></div></div><p class="small muted">El envío permanece bloqueado en esta versión.</p><p class="small muted">El envío usa el control existente de huella remota verificada y ETag (If-Match). Si no existe una base remota vinculada y verificada, se BLOQUEA. No se omiten estas protecciones.</p>
+ <div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.10 · Preparación del envío protegido</h3><p>Comprueba las huellas y los nombres de proyectos antes de cualquier envío. Solo lectura.</p><button class="btn primary" type="button" onclick="v17l10Preflight()">Ejecutar comprobación final (solo lectura)</button><div id="v17l10-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.11.1 · Preparación de respaldos (solo lectura)</h3><p>Selecciona las dos copias cifradas guardadas. Este paso comprueba sus huellas; no envía datos a OneDrive.</p><label>Respaldo LOCAL cifrado <input type="file" id="v17l111-local" accept=".json,application/json"></label><label>Respaldo REMOTO cifrado <input type="file" id="v17l111-remote" accept=".json,application/json"></label><p><button class="btn primary" type="button" onclick="v17l111Check()">Comprobar respaldos (sin enviar)</button></p><div id="v17l111-result" aria-live="polite"></div></div><p class="small muted">El envío continúa bloqueado hasta probar esta pantalla en Edge.</p><p class="small muted">El envío usa el control existente de huella remota verificada y ETag (If-Match). Si no existe una base remota vinculada y verificada, se BLOQUEA. No se omiten estas protecciones.</p>
  <button class="btn" onclick="nav('datos')">Volver a Datos y copias</button></div>`;
 }
 // 17L.5: Evidence of which two data sources are actually in the live review.
