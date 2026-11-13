@@ -1557,7 +1557,98 @@ async function v17l163Compare(){
  }catch(e){say('BLOQUEADO: '+e.message+' No se ha modificado ningún dato.');}
  finally{btn.disabled=false;}
 }
-</script></body></html>
+</script>
+<script>
+async function v17l164Check(){
+ const out=document.getElementById('v17l164-out'),btn=document.getElementById('v17l164-btn');
+ if(!out||btn.disabled)return;btn.disabled=true;out.replaceChildren();
+ const say=t=>{const p=document.createElement('p');p.textContent=t;out.append(p)};
+ const canonical=x=>Array.isArray(x)?x.map(canonical):x&&typeof x==='object'?Object.fromEntries(Object.keys(x).sort().map(k=>[k,canonical(x[k])])):x;
+ const same=(a,b)=>JSON.stringify(canonical(a))===JSON.stringify(canonical(b));
+ const expectedLocal='2370c6fcd03a89d6ad9df0dc5eae91e3d890d4df489745ab5eaabf00601feaf0';
+ const expectedRemote='046e9ba768397b7046578912d0d0a617dfc1027b0283b06e6d040a6e71fb642c';
+ const expectedFile='d3675f1be60bcb7a68910dbb27405976728fe4b2918180cbf10f2ff4f0599900';
+ try{
+  await saveQueue;
+  if(!v23Key)throw Error('Desbloquea primero la base LOCAL.');
+  const raw=localStorage.getItem(KEY);if(!raw)throw Error('Falta el archivo LOCAL guardado.');
+  const saved=await v23Open(validateV23(JSON.parse(raw)),v23Key);
+  const openHash=await v17jDigest(db),savedHash=await v17jDigest(saved);
+  say('Huella LOCAL abierta: '+openHash);
+  say('Huella LOCAL guardada: '+savedHash);
+  if(savedHash!==expectedLocal)throw Error('La copia LOCAL guardada cambió desde 17L.16.');
+  const issues=v17eAnalyze(saved).issues;
+  if(issues.length)throw Error('Integridad LOCAL: '+issues.slice(0,3).join('; '));
+  const differences=[];
+  for(const [table,pk] of Object.entries(V26_TABLES)){
+   const a=db[table]||[],b=saved[table]||[];
+   if(a.length!==b.length)differences.push(table+': número de registros diferente');
+   const byId=new Map(b.map(r=>[String(r[pk]),r]));
+   for(const row of a){
+    const id=String(row[pk]),original=byId.get(id);
+    if(!original){differences.push(table+' ID '+id+': ausente en copia guardada');continue;}
+    const normalized={...original};
+    if(table==='Proyectos'&&id==='5'){
+     if(!Object.hasOwn(normalized,'Prioridades_Congreso')&&Array.isArray(row.Prioridades_Congreso)&&row.Prioridades_Congreso.length===0)normalized.Prioridades_Congreso=[];
+     if(!Object.hasOwn(normalized,'Tipo_Proyecto')&&row.Tipo_Proyecto==='')normalized.Tipo_Proyecto='';
+    }
+    if(!same(row,normalized))differences.push(table+' ID '+id+': diferencia no explicada');
+   }
+   if(new Set(a.map(r=>String(r[pk]))).size!==a.length||byId.size!==b.length)differences.push(table+': ID duplicados');
+  }
+  for(const k of new Set([...Object.keys(db),...Object.keys(saved)])){
+   if(Object.hasOwn(V26_TABLES,k))continue;
+   if(!same(db[k],saved[k]))differences.push('Propiedad adicional: '+k);
+  }
+  if(differences.length)throw Error('LOCAL abierta vs guardada: '+differences.slice(0,8).join('; '));
+  say('APROBADA: las únicas diferencias entre LOCAL abierta y guardada son dos valores vacíos predeterminados en Proyecto 5.');
+  const meta=await v24Meta();if(!meta)throw Error('No se encuentra OneDrive.');
+  const etag=meta.eTag;
+  if(!etag||!etag.endsWith(',2"'))throw Error('ETag REMOTO inesperado: '+etag);
+  const remoteRaw=await v17lRemoteContent(meta);
+  if(await v24Hash(remoteRaw)!==expectedFile)throw Error('El archivo REMOTO cifrado ha cambiado.');
+  const checkMeta=await v24Meta();
+  if(checkMeta?.eTag!==etag)throw Error('El ETag cambió durante la lectura.');
+  const pass=prompt('Contraseña del respaldo remoto (permanece en el navegador):');
+  if(pass===null){say('CANCELADO. Sin cambios.');return;}
+  const envelope=validateV23(JSON.parse(remoteRaw));
+  const remote=await v23Open(envelope,await v23Derive(pass,v23Unb64(envelope.salt)));
+  const remoteHash=await v17jDigest(remote);
+  if(remoteHash!==expectedRemote)throw Error('La huella REMOTA ya no es la verificada.');
+  if(v17eAnalyze(remote).issues.length)throw Error('Integridad REMOTA no aprobada.');
+  const diffs=[],newProjects=[];
+  for(const [table,pk] of Object.entries(V26_TABLES)){
+   const localRows=saved[table]||[],remoteRows=remote[table]||[];
+   const localMap=new Map(localRows.map(r=>[String(r[pk]),r]));
+   const remoteMap=new Map(remoteRows.map(r=>[String(r[pk]),r]));
+   if(localMap.size!==localRows.length||remoteMap.size!==remoteRows.length)diffs.push(table+': ID duplicados');
+   for(const [id,r] of remoteMap){
+    if(!localMap.has(id))diffs.push(table+' ID '+id+': eliminado en LOCAL');
+    else if(!same(localMap.get(id),r))diffs.push(table+' ID '+id+': registro existente modificado');
+   }
+   for(const [id,r] of localMap){
+    if(!remoteMap.has(id)){
+     if(table==='Proyectos'&&r.Proyecto==='Prueba Sincronización 17L16')newProjects.push({id,row:r});
+     else diffs.push(table+' ID '+id+': añadido inesperado');
+    }
+   }
+  }
+  for(const k of new Set([...Object.keys(saved),...Object.keys(remote)])){
+   if(Object.hasOwn(V26_TABLES,k))continue;
+   if(!same(saved[k],remote[k]))diffs.push('Propiedad fuera de tablas: '+k);
+  }
+  if(newProjects.length!==1)diffs.push('Se esperaban exactamente un proyecto nuevo; encontrados '+newProjects.length);
+  if(diffs.length)throw Error('Cambios inesperados LOCAL vs REMOTO: '+diffs.slice(0,10).join('; '));
+  say('APROBADA: la copia LOCAL guardada tiene exactamente un proyecto adicional: ID '+newProjects[0].id+' — '+newProjects[0].row.Proyecto);
+  say('Los registros anteriores de las 12 tablas permanecen idénticos (comparación independiente del orden de campos).');
+  say('Huella REMOTA: '+remoteHash);
+  say('ETag REMOTO: '+etag);
+  say('SOLO LECTURA: no se ha modificado LOCAL ni OneDrive. Esta comprobación no autoriza por sí sola el envío.');
+ }catch(e){say('BLOQUEADO: '+e.message);say('No se ha modificado LOCAL ni OneDrive.');}
+ finally{btn.disabled=false;}
+}
+</script>
+</body></html>
 <script>
 async function v28SeedCloud(){
  if(v24Busy)return;v24Busy=true;
@@ -1880,7 +1971,7 @@ function v17lPanel(){
  <label><input type="checkbox" id="v17l-backups" onchange="v17lUpdate()"> He guardado por separado los respaldos cifrados LOCAL y REMOTO.</label>
  <div class="toolbar"><button class="btn primary" id="v17l-upload" onclick="v17lUpload()" disabled>5. Enviar base cifrada con protección de versión</button></div>
  <div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.10 · Preparación del envío protegido</h3><p>Comprueba las huellas y los nombres de proyectos antes de cualquier envío. Solo lectura.</p><button class="btn primary" type="button" onclick="v17l10Preflight()">Ejecutar comprobación final (solo lectura)</button><div id="v17l10-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.11.2 · Verificación de contenido de respaldos (solo lectura)</h3><p>Selecciona las dos copias cifradas guardadas. Este paso compara los datos descifrados del respaldo LOCAL y la base actual, no los bytes cifrados. No envía datos a OneDrive.</p><label>Respaldo LOCAL cifrado <input type="file" id="v17l111-local" accept=".json,application/json"></label><label>Respaldo REMOTO cifrado <input type="file" id="v17l111-remote" accept=".json,application/json"></label><p><button class="btn primary" type="button" onclick="v17l111Check()">Comprobar respaldos (sin enviar)</button></p><div id="v17l111-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px">
-<div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.16.2 · Diagnóstico de copia local y comparación</h3><p>Compara la base abierta y la copia cifrada guardada; muestra diferencias antes de cualquier intento de envío. Solo lectura.</p><button class="btn primary" type="button" id="v17l161-check" onclick="v17l161Check()">Diagnosticar diferencia (sin enviar)</button><div id="v17l161-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.16.3 · Comparación de campos del Proyecto 5 (solo lectura)</h3><p>Compara los valores de cada campo entre la base abierta y la copia cifrada guardada. No cambia ningún dato ni contacta OneDrive.</p><button class="btn primary" type="button" onclick="v17l163Compare()" id="v17l163-btn">Comparar campos del Proyecto 5 (sin enviar)</button><div id="v17l163-out" aria-live="polite"></div></div><h3>17L.15 · Preparación de sincronización entre navegadores (solo lectura)</h3>
+<div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.16.2 · Diagnóstico de copia local y comparación</h3><p>Compara la base abierta y la copia cifrada guardada; muestra diferencias antes de cualquier intento de envío. Solo lectura.</p><button class="btn primary" type="button" id="v17l161-check" onclick="v17l161Check()">Diagnosticar diferencia (sin enviar)</button><div id="v17l161-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.16.3 · Comparación de campos del Proyecto 5 (solo lectura)</h3><p>Compara los valores de cada campo entre la base abierta y la copia cifrada guardada. No cambia ningún dato ni contacta OneDrive.</p><button class="btn primary" type="button" onclick="v17l163Compare()" id="v17l163-btn">Comparar campos del Proyecto 5 (sin enviar)</button><div id="v17l163-out" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.16.4 · Validación de valores vacíos y cambio único (solo lectura)</h3><p>Comprueba los dos valores predeterminados del Proyecto 5 y compara la copia LOCAL guardada con OneDrive, registro por registro en las 12 tablas. No envía datos.</p><button class="btn primary" id="v17l164-btn" type="button" onclick="v17l164Check()">Verificar cambio único (sin enviar)</button><div id="v17l164-out" aria-live="polite"></div></div><h3>17L.15 · Preparación de sincronización entre navegadores (solo lectura)</h3>
 <p>Comprueba la base LOCAL, el archivo de OneDrive y su versión actual sin depender de la huella histórica fija. No cambia datos ni activa el envío.</p>
 <p><button class="btn primary" type="button" id="v17l15-check" onclick="v17l15Check()">Comprobar punto de partida para sincronización</button></p>
 <div id="v17l15-result" aria-live="polite"></div>
