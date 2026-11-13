@@ -35,88 +35,7 @@ function setPrimaryProject(tid,pid){let t=arr('Tareas').find(x=>Number(x.Tarea_I
 function prioritiesPage(){const projects=arr('Proyectos');const tasks=arr('Tareas');const linkedTasks=(pids)=>tasks.filter(t=>taskP(t.Tarea_ID).some(pid=>pids.includes(pid)));let sections=PRIORITIES.map(([key,label])=>{const ps=projects.filter(p=>(p.Prioridades_Congreso||[]).includes(key));const ts=linkedTasks(ps.map(p=>String(p.Proyecto_ID)));const done=ts.filter(t=>String(t.Estado||'').toLowerCase()==='terminado').length;const pending=arr('To_Dos').filter(t=>ts.some(x=>String(x.Tarea_ID)===String(t.Tarea_ID))&&!todoDone(t)&&!isInfo(t)).length;return `<div class="panel"><h2>${E(label)}</h2><p>${ps.length} proyectos · ${ts.length} tareas distintas · ${done} tareas terminadas · ${pending} to-dos pendientes</p>${ps.map(p=>`<div class="item">${link('proyectos',p.Proyecto_ID,p.Proyecto)} <span class="small muted">${E(p.Tipo_Proyecto||'Sin tipo')}</span></div>`).join('')||'<p class="muted">Todavía no hay proyectos clasificados.</p>'}</div>`}).join('');const unclassified=projects.filter(p=>!p.Tipo_Proyecto||!(p.Prioridades_Congreso||[]).length);return `<p class="muted">Clasifica cada proyecto en su ficha. Las propuestas se basan en nombres y descripciones de la exportación original y requieren tu revisión. Un proyecto puede pertenecer a varias prioridades; los totales generales evitan contar tareas duplicadas.</p><div class="toolbar"><button class="btn primary" onclick="downloadStrategicCSV()">Exportar resumen CSV</button><button class="btn" onclick="printStrategicReport()">Imprimir / Guardar PDF</button></div>${sections}<div class="panel"><h2>Proyectos que requieren revisión</h2><p>${unclassified.length} proyectos sin tipo o sin prioridad. Algunos pueden quedar sin prioridad intencionadamente.</p>${unclassified.map(p=>`<div class="item">${link('proyectos',p.Proyecto_ID,p.Proyecto)}<span class="small muted">${E(p.Tipo_Proyecto||'Sin tipo')}</span></div>`).join('')}</div><div class="panel"><h3>Asignación del proyecto principal</h3><p>${tasks.filter(t=>taskP(t.Tarea_ID).length>1&&!t.Proyecto_Principal_ID).length} tareas con varios proyectos aún no tienen proyecto principal. Puedes seleccionarlo en cada tarea.</p></div>`}
 function strategicRows(){return arr('Proyectos').map(p=>{const ts=arr('Tareas').filter(t=>taskP(t.Tarea_ID).includes(String(p.Proyecto_ID)));return {Proyecto:p.Proyecto||'',Tipo:p.Tipo_Proyecto||'',Prioridades:(p.Prioridades_Congreso||[]).map(k=>PRIORITIES.find(z=>z[0]===k)?.[1]||k).join(' / '),Tareas:ts.length,Terminadas:ts.filter(t=>String(t.Estado||'').toLowerCase()==='terminado').length,ToDosPendientes:countTodos(ts.map(t=>String(t.Tarea_ID)))}})}
 function downloadStrategicCSV(){const rows=strategicRows(),keys=['Proyecto','Tipo','Prioridades','Tareas','Terminadas','ToDosPendientes'];const csv='\uFEFF'+[keys.join(';'),...rows.map(r=>keys.map(k=>'"'+String(r[k]??'').replace(/"/g,'""')+'"').join(';'))].join('\r\n');const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});const u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download='Seguimiento_Plan_de_Gobierno.csv';a.click();setTimeout(()=>URL.revokeObjectURL(u),500)}
-function printStrategicReport(){const rows=strategicRows(),w=window.open('','_blank');if(!w)return alert('Permite ventanas emergentes para imprimir el informe.');w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Seguimiento del Plan de Gobierno</title><style>body{font:14px Arial;margin:35px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:7px;text-align:left}h1{font-size:23px}small{color:#666}.r-todo{padding:9px 0 9px 14px;border-left:3px solid #c6d8e5;margin:8px 0;break-inside:auto;page-break-inside:auto}.r-todo-heading{font-size:13px}.r-todo-note{margin:8px 0 2px 0;padding:9px 12px;background:#f6f9fc;white-space:normal;overflow-wrap:anywhere}.r-todo-note p{margin:0 0 8px}.r-todo-note ul,.r-todo-note ol{padding-left:24px}.r-todo-note p:last-child{margin-bottom:0}</style><style id="v29b-compact-notes">.v29b-note-text{white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;margin:7px 0}.v29b-note-text.expanded{display:block;overflow:visible}.v29b-note-card{margin:8px 0;padding:12px!important}.v29b-todo-notes{margin-top:8px}.v29b-todo-notes .v29b-note-card{background:#f8fafc}.note-editor textarea{box-sizing:border-box;min-height:0!important}</style><style>.v29b-simple-list{background:white;border:1px solid #dfe6ee;border-radius:10px;overflow:hidden}.v29b-simple-head,.v29b-simple-row{display:grid;grid-template-columns:minmax(180px,2fr) minmax(120px,1fr) minmax(120px,1fr) 115px 110px;gap:12px;align-items:center;padding:12px 14px}.v29b-simple-head{background:#e8f1fa;font-size:13px}.v29b-simple-row{width:100%;border:0;border-top:1px solid #e7edf2;background:white;color:#1b2d40;text-align:left;font:inherit;cursor:pointer}.v29b-simple-row:hover,.v29b-simple-row:focus-visible{background:#eef6fc}.v29b-truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:850px){.v29b-simple-head{display:none}.v29b-simple-row{grid-template-columns:1fr 1fr;gap:5px}.v29b-simple-row span:first-child{grid-column:1/-1;font-weight:650;white-space:normal}.v29b-simple-row span:nth-child(3){grid-column:1/-1}}</style><style id="v29b-c7">.v29b-c7-list{border:1px solid #dfe6ee;border-radius:10px;overflow-x:auto;background:white}.v29b-c7-head,.v29b-c7-row{display:grid;grid-template-columns:minmax(150px,1.5fr) minmax(110px,1fr) minmax(190px,2.2fr) 105px 90px;gap:12px;align-items:start;padding:12px;border-bottom:1px solid #e7edf2;min-width:700px}.v29b-c7-head{background:#e8f1fa;font-size:13px}.v29b-c7-row:last-child{border-bottom:0}.v29b-c7-preview{font-size:13px;color:#455b6e;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;white-space:normal}.v29b-c7-plus{color:#176e9e;font-size:25px;font-weight:700;border:0;background:none;cursor:pointer;line-height:1}.v29b-c7-note-cell{display:flex;align-items:start;gap:7px}.v29b-c7-editor{border:1px solid #c9d5e0;border-radius:8px;padding:12px;min-height:110px;line-height:1.5;overflow-wrap:anywhere}.v29b-c7-editor ol,.v29b-c7-editor ul,.v29b-c7-full ol,.v29b-c7-full ul{padding-left:26px}.v29b-c7-full{line-height:1.5}.v29b-c7-full p{margin:0 0 9px}</style></head><body><h1>Seguimiento del Plan de Gobierno 2024–2030</h1><small>Generado '+new Date().toLocaleDateString('es-ES')+' · Los porcentajes de tareas no miden por sí solos el impacto de las prioridades.</small><table><thead><tr><th>Proyecto</th><th>Tipo</th><th>Prioridades</th><th>Tareas</th><th>Terminadas</th><th>To-dos pendientes</th></tr></thead><tbody>'+rows.map(r=>'<tr>'+[r.Proyecto,r.Tipo,r.Prioridades,r.Tareas,r.Terminadas,r.ToDosPendientes].map(v=>'<td>'+E(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table><script>
-async function v17l20Check(){
- const btn=document.getElementById('v17l20-btn'),out=document.getElementById('v17l20-out');
- if(!btn||btn.disabled||!out)return;btn.disabled=true;out.replaceChildren();
- const say=t=>{const p=document.createElement('p');p.textContent=t;out.append(p)};
- const canon=x=>Array.isArray(x)?x.map(canon):x&&typeof x==='object'?Object.fromEntries(Object.keys(x).sort().map(k=>[k,canon(x[k])])):x;
- const same=(a,b)=>JSON.stringify(canon(a))===JSON.stringify(canon(b));
- const baseDigest='2370c6fcd03a89d6ad9df0dc5eae91e3d890d4df489745ab5eaabf00601feaf0';
- const baseFile='0c6f304111f26b38dc686e50a57a354b66454b7940ec0339458e463675eaf011';
- const baseEtag='"{3E3A9AC0-504C-45DC-B671-64408EEC991B},3"';
- const newName='Prueba Sincronización 17L20 Chrome';
- try{
-  await saveQueue;
-  if(!v23Key)throw Error('Desbloquea primero la base LOCAL de Chrome.');
-  const localRaw=localStorage.getItem(KEY);if(!localRaw)throw Error('No hay base LOCAL cifrada.');
-  const saved=await v23Open(validateV23(JSON.parse(localRaw)),v23Key);
-  const savedDigest=await v17jDigest(saved);
-  say('Huella LOCAL guardada: '+savedDigest);
-  if(savedDigest===baseDigest)throw Error('No se ha guardado todavía el nuevo proyecto en la copia LOCAL.');
-  const localIssues=v17eAnalyze(saved).issues;
-  if(localIssues.length)throw Error('Integridad LOCAL: '+localIssues.slice(0,4).join('; '));
-  const inMemoryIssues=[];
-  for(const [table,pk] of Object.entries(V26_TABLES)){
-   const open=db[table]||[],disk=saved[table]||[];
-   if(!Array.isArray(open)||!Array.isArray(disk))throw Error('Tabla LOCAL inválida: '+table);
-   if(open.length!==disk.length)inMemoryIssues.push(table+': distinto número de registros');
-   const openMap=new Map(open.map(r=>[String(r[pk]),r]));
-   if(openMap.size!==open.length)inMemoryIssues.push(table+': ID duplicados en memoria');
-   for(const r of disk){
-    const id=String(r[pk]),a=openMap.get(id);
-    if(!a){inMemoryIssues.push(table+' ID '+id+' ausente en memoria');continue;}
-    const normalized={...r};
-    if(table==='Proyectos'){
-     if(!Object.hasOwn(normalized,'Prioridades_Congreso')&&Array.isArray(a.Prioridades_Congreso)&&a.Prioridades_Congreso.length===0)normalized.Prioridades_Congreso=[];
-     if(!Object.hasOwn(normalized,'Tipo_Proyecto')&&a.Tipo_Proyecto==='')normalized.Tipo_Proyecto='';
-    }
-    if(!same(a,normalized))inMemoryIssues.push(table+' ID '+id+' distinto en memoria');
-   }
-  }
-  for(const k of new Set([...Object.keys(db),...Object.keys(saved)])){
-   if(Object.hasOwn(V26_TABLES,k))continue;
-   if(!same(db[k],saved[k]))inMemoryIssues.push('Propiedad LOCAL: '+k);
-  }
-  if(inMemoryIssues.length)throw Error('La copia abierta no coincide con la guardada: '+inMemoryIssues.slice(0,6).join('; '));
-  say('APROBADA: Chrome abierto y guardado coinciden, salvo campos vacíos predeterminados.');
-  const meta=await v24Meta();if(!meta||meta.eTag!==baseEtag)throw Error('OneDrive no tiene el ETag esperado.');
-  const remoteRaw=await v17lRemoteContent(meta);
-  const fileDigest=await v24Hash(remoteRaw);
-  say('Huella archivo cifrado REMOTO: '+fileDigest);
-  if(fileDigest!==baseFile)throw Error('El archivo cifrado de OneDrive cambió.');
-  const pass=prompt('Contraseña de OneDrive para comparar (solo lectura):');
-  if(pass===null){say('CANCELADO. Sin cambios.');return;}
-  const env=validateV23(JSON.parse(remoteRaw));
-  const remote=await v23Open(env,await v23Derive(pass,v23Unb64(env.salt)));
-  const remoteDigest=await v17jDigest(remote);
-  say('Huella datos REMOTOS: '+remoteDigest);
-  if(remoteDigest!==baseDigest)throw Error('Los datos REMOTOS no coinciden con la base verificada.');
-  if(v17eAnalyze(remote).issues.length)throw Error('Integridad REMOTA fallida.');
-  const changes=[],added=[];
-  for(const [table,pk] of Object.entries(V26_TABLES)){
-   const localRows=saved[table]||[],remoteRows=remote[table]||[];
-   const lm=new Map(localRows.map(r=>[String(r[pk]),r])),rm=new Map(remoteRows.map(r=>[String(r[pk]),r]));
-   if(lm.size!==localRows.length||rm.size!==remoteRows.length)changes.push(table+': ID duplicados');
-   for(const [id,r] of rm){if(!lm.has(id))changes.push(table+' ID '+id+' eliminado en Chrome');else if(!same(r,lm.get(id)))changes.push(table+' ID '+id+' modificado');}
-   for(const [id,r] of lm){if(!rm.has(id)){if(table==='Proyectos'&&r.Proyecto===newName)added.push({id,row:r});else changes.push(table+' ID '+id+' añadido inesperado');}}
-  }
-  for(const k of new Set([...Object.keys(saved),...Object.keys(remote)])){
-   if(Object.hasOwn(V26_TABLES,k))continue;
-   if(!same(saved[k],remote[k]))changes.push('Propiedad fuera de tablas: '+k);
-  }
-  if(added.length!==1)changes.push('Se esperaba un único proyecto nuevo; encontrados '+added.length);
-  if(changes.length)throw Error('Diferencias inesperadas: '+changes.slice(0,8).join('; '));
-  if((await v24Meta())?.eTag!==baseEtag)throw Error('OneDrive cambió durante la comprobación.');
-  if(localStorage.getItem(KEY)!==localRaw)throw Error('Chrome cambió durante la comprobación.');
-  say('APROBADA: Chrome tiene exactamente un proyecto nuevo: ID '+added[0].id+' — '+added[0].row.Proyecto);
-  say('APROBADA: los registros anteriores de las 12 tablas permanecen idénticos.');
-  say('ETag REMOTO: '+baseEtag);
-  say('SOLO LECTURA: Chrome y OneDrive no se han modificado. No se ha enviado nada.');
- }catch(e){say('BLOQUEADO: '+(e?.message||String(e)));say('No se ha enviado nada a OneDrive.');}
- finally{btn.disabled=false;}
-}
-</script></body></html>');w.document.close();w.focus();w.print()}
+function printStrategicReport(){const rows=strategicRows(),w=window.open('','_blank');if(!w)return alert('Permite ventanas emergentes para imprimir el informe.');w.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Seguimiento del Plan de Gobierno</title><style>body{font:14px Arial;margin:35px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccc;padding:7px;text-align:left}h1{font-size:23px}small{color:#666}.r-todo{padding:9px 0 9px 14px;border-left:3px solid #c6d8e5;margin:8px 0;break-inside:auto;page-break-inside:auto}.r-todo-heading{font-size:13px}.r-todo-note{margin:8px 0 2px 0;padding:9px 12px;background:#f6f9fc;white-space:normal;overflow-wrap:anywhere}.r-todo-note p{margin:0 0 8px}.r-todo-note ul,.r-todo-note ol{padding-left:24px}.r-todo-note p:last-child{margin-bottom:0}</style><style id="v29b-compact-notes">.v29b-note-text{white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;margin:7px 0}.v29b-note-text.expanded{display:block;overflow:visible}.v29b-note-card{margin:8px 0;padding:12px!important}.v29b-todo-notes{margin-top:8px}.v29b-todo-notes .v29b-note-card{background:#f8fafc}.note-editor textarea{box-sizing:border-box;min-height:0!important}</style><style>.v29b-simple-list{background:white;border:1px solid #dfe6ee;border-radius:10px;overflow:hidden}.v29b-simple-head,.v29b-simple-row{display:grid;grid-template-columns:minmax(180px,2fr) minmax(120px,1fr) minmax(120px,1fr) 115px 110px;gap:12px;align-items:center;padding:12px 14px}.v29b-simple-head{background:#e8f1fa;font-size:13px}.v29b-simple-row{width:100%;border:0;border-top:1px solid #e7edf2;background:white;color:#1b2d40;text-align:left;font:inherit;cursor:pointer}.v29b-simple-row:hover,.v29b-simple-row:focus-visible{background:#eef6fc}.v29b-truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:850px){.v29b-simple-head{display:none}.v29b-simple-row{grid-template-columns:1fr 1fr;gap:5px}.v29b-simple-row span:first-child{grid-column:1/-1;font-weight:650;white-space:normal}.v29b-simple-row span:nth-child(3){grid-column:1/-1}}</style><style id="v29b-c7">.v29b-c7-list{border:1px solid #dfe6ee;border-radius:10px;overflow-x:auto;background:white}.v29b-c7-head,.v29b-c7-row{display:grid;grid-template-columns:minmax(150px,1.5fr) minmax(110px,1fr) minmax(190px,2.2fr) 105px 90px;gap:12px;align-items:start;padding:12px;border-bottom:1px solid #e7edf2;min-width:700px}.v29b-c7-head{background:#e8f1fa;font-size:13px}.v29b-c7-row:last-child{border-bottom:0}.v29b-c7-preview{font-size:13px;color:#455b6e;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;white-space:normal}.v29b-c7-plus{color:#176e9e;font-size:25px;font-weight:700;border:0;background:none;cursor:pointer;line-height:1}.v29b-c7-note-cell{display:flex;align-items:start;gap:7px}.v29b-c7-editor{border:1px solid #c9d5e0;border-radius:8px;padding:12px;min-height:110px;line-height:1.5;overflow-wrap:anywhere}.v29b-c7-editor ol,.v29b-c7-editor ul,.v29b-c7-full ol,.v29b-c7-full ul{padding-left:26px}.v29b-c7-full{line-height:1.5}.v29b-c7-full p{margin:0 0 9px}</style></head><body><h1>Seguimiento del Plan de Gobierno 2024–2030</h1><small>Generado '+new Date().toLocaleDateString('es-ES')+' · Los porcentajes de tareas no miden por sí solos el impacto de las prioridades.</small><table><thead><tr><th>Proyecto</th><th>Tipo</th><th>Prioridades</th><th>Tareas</th><th>Terminadas</th><th>To-dos pendientes</th></tr></thead><tbody>'+rows.map(r=>'<tr>'+[r.Proyecto,r.Tipo,r.Prioridades,r.Tareas,r.Terminadas,r.ToDosPendientes].map(v=>'<td>'+E(v)+'</td>').join('')+'</tr>').join('')+'</tbody></table></body></html>');w.document.close();w.focus();w.print()}
 function localDay29(){const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')}
 // Correction 8B: one visible date, with legacy fields retained for compatible backups.
 function todoFecha8(x){return date(todoDone(x)?(x.Fecha_Completado||x.Fecha_ToDO):x.Fecha_ToDO)}
@@ -326,88 +245,7 @@ function reportMarkup(full){let d=reportDataset();if(d.error)return `<p>${E(d.er
  }
  if(reportType==='equipo_proyectos'){let groups=new Map();for(let t of d.tasks){let ps=taskP(t.Tarea_ID);if(reportProject)ps=ps.filter(i=>i===reportProject);if(!ps.length)ps=[''];for(let p of ps){if(!groups.has(p))groups.set(p,[]);groups.get(p).push(t)}}return intro+[...groups.entries()].sort((a,b)=>String(name('Proyectos',a[0])).localeCompare(String(name('Proyectos',b[0])),'es')).map(([p,ts])=>`<h2>${E(p?name('Proyectos',p):'Sin proyecto asociado')}</h2><p>${ts.length} tareas; ${ts.filter(t=>String(t.Estado||'').toLowerCase()==='terminado').length} terminadas</p>`+ts.map(t=>reportTaskHtml(t,d.todos)).join('')).join('')}
  if(reportType==='proyecto'||reportType==='rango_tareas')d.tasks.sort((a,b)=>reportOrder==='asc'?(taskFecha8(a)||'9999-12-31').localeCompare(taskFecha8(b)||'9999-12-31'):(taskFecha8(b)||'').localeCompare(taskFecha8(a)||''));return intro+d.tasks.map(t=>reportTaskHtml(t,d.todos)).join('')+(d.tasks.length?'':'<p>No hay registros para estos filtros.</p>');}
-function printReport(){let d=reportDataset();if(d.error)return alert(d.error);let win=window.open('','_blank');if(!win)return alert('El navegador ha bloqueado la ventana del informe. Permite las ventanas emergentes para este archivo.');win.document.open();win.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${E(d.title)}</title><style>.r-day-todo-title{font-size:21px!important;line-height:1.3;margin:0 0 6px!important;color:#19334e;font-weight:700;overflow-wrap:anywhere}.r-day-todo-meta{font-size:13px;color:#455b6e;margin:0 0 9px!important}.r-day-todo-head{break-inside:avoid;page-break-inside:avoid;break-after:avoid-page;page-break-after:avoid}.r-day-todo-head + p{margin-top:7px}.r-range-task>h3{font-size:21px!important;line-height:1.3;color:#19334e;margin:0 0 9px;overflow-wrap:anywhere}.r-range-task>h3 small{font-size:12px;font-weight:normal;color:#455b6e}.r-range-task>h3{break-after:avoid-page;page-break-after:avoid}</style><style>body{font:14px Arial,sans-serif;color:#223344;max-width:1100px;margin:30px auto;padding:0 20px;line-height:1.5}h1{font-size:24px}h2{border-bottom:2px solid #aac0d0;padding-bottom:6px;margin-top:30px}h3{font-size:16px;margin-bottom:5px}.r-task{break-inside:auto;page-break-inside:auto;border-top:1px solid #ddd;padding:12px 0}.r-task p{margin:6px 0}.r-table{border-collapse:collapse;width:100%;font-size:12px;table-layout:fixed;overflow-wrap:anywhere}.r-table th,.r-table td{border:1px solid #ccd5dc;padding:7px;vertical-align:top;text-align:left}.r-table th{background:#edf3f8}.muted{color:#667}.printbar{margin-bottom:24px}@media print{.printbar{display:none}body{margin:0;padding:0;max-width:none}h1,h2,h3,.r-todo-heading{break-after:avoid-page;page-break-after:avoid}h1+p{break-after:avoid-page;page-break-after:avoid}.r-task,.r-todo,.r-todo-note{break-inside:auto!important;page-break-inside:auto!important}.r-todo-note p,.r-todo-note li{orphans:2;widows:2}thead{display:table-header-group}@page{size:A4;margin:15mm}}</style><style id="v29b-compact-notes">.v29b-note-text{white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;margin:7px 0}.v29b-note-text.expanded{display:block;overflow:visible}.v29b-note-card{margin:8px 0;padding:12px!important}.v29b-todo-notes{margin-top:8px}.v29b-todo-notes .v29b-note-card{background:#f8fafc}.note-editor textarea{box-sizing:border-box;min-height:0!important}</style><style>.v29b-simple-list{background:white;border:1px solid #dfe6ee;border-radius:10px;overflow:hidden}.v29b-simple-head,.v29b-simple-row{display:grid;grid-template-columns:minmax(180px,2fr) minmax(120px,1fr) minmax(120px,1fr) 115px 110px;gap:12px;align-items:center;padding:12px 14px}.v29b-simple-head{background:#e8f1fa;font-size:13px}.v29b-simple-row{width:100%;border:0;border-top:1px solid #e7edf2;background:white;color:#1b2d40;text-align:left;font:inherit;cursor:pointer}.v29b-simple-row:hover,.v29b-simple-row:focus-visible{background:#eef6fc}.v29b-truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:850px){.v29b-simple-head{display:none}.v29b-simple-row{grid-template-columns:1fr 1fr;gap:5px}.v29b-simple-row span:first-child{grid-column:1/-1;font-weight:650;white-space:normal}.v29b-simple-row span:nth-child(3){grid-column:1/-1}}</style><style id="v29b-c7">.v29b-c7-list{border:1px solid #dfe6ee;border-radius:10px;overflow-x:auto;background:white}.v29b-c7-head,.v29b-c7-row{display:grid;grid-template-columns:minmax(150px,1.5fr) minmax(110px,1fr) minmax(190px,2.2fr) 105px 90px;gap:12px;align-items:start;padding:12px;border-bottom:1px solid #e7edf2;min-width:700px}.v29b-c7-head{background:#e8f1fa;font-size:13px}.v29b-c7-row:last-child{border-bottom:0}.v29b-c7-preview{font-size:13px;color:#455b6e;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;white-space:normal}.v29b-c7-plus{color:#176e9e;font-size:25px;font-weight:700;border:0;background:none;cursor:pointer;line-height:1}.v29b-c7-note-cell{display:flex;align-items:start;gap:7px}.v29b-c7-editor{border:1px solid #c9d5e0;border-radius:8px;padding:12px;min-height:110px;line-height:1.5;overflow-wrap:anywhere}.v29b-c7-editor ol,.v29b-c7-editor ul,.v29b-c7-full ol,.v29b-c7-full ul{padding-left:26px}.v29b-c7-full{line-height:1.5}.v29b-c7-full p{margin:0 0 9px}</style></head><body><div class="printbar"><button onclick="window.print()">Imprimir / Guardar como PDF</button></div>${reportMarkup(true)}<script>
-async function v17l20Check(){
- const btn=document.getElementById('v17l20-btn'),out=document.getElementById('v17l20-out');
- if(!btn||btn.disabled||!out)return;btn.disabled=true;out.replaceChildren();
- const say=t=>{const p=document.createElement('p');p.textContent=t;out.append(p)};
- const canon=x=>Array.isArray(x)?x.map(canon):x&&typeof x==='object'?Object.fromEntries(Object.keys(x).sort().map(k=>[k,canon(x[k])])):x;
- const same=(a,b)=>JSON.stringify(canon(a))===JSON.stringify(canon(b));
- const baseDigest='2370c6fcd03a89d6ad9df0dc5eae91e3d890d4df489745ab5eaabf00601feaf0';
- const baseFile='0c6f304111f26b38dc686e50a57a354b66454b7940ec0339458e463675eaf011';
- const baseEtag='"{3E3A9AC0-504C-45DC-B671-64408EEC991B},3"';
- const newName='Prueba Sincronización 17L20 Chrome';
- try{
-  await saveQueue;
-  if(!v23Key)throw Error('Desbloquea primero la base LOCAL de Chrome.');
-  const localRaw=localStorage.getItem(KEY);if(!localRaw)throw Error('No hay base LOCAL cifrada.');
-  const saved=await v23Open(validateV23(JSON.parse(localRaw)),v23Key);
-  const savedDigest=await v17jDigest(saved);
-  say('Huella LOCAL guardada: '+savedDigest);
-  if(savedDigest===baseDigest)throw Error('No se ha guardado todavía el nuevo proyecto en la copia LOCAL.');
-  const localIssues=v17eAnalyze(saved).issues;
-  if(localIssues.length)throw Error('Integridad LOCAL: '+localIssues.slice(0,4).join('; '));
-  const inMemoryIssues=[];
-  for(const [table,pk] of Object.entries(V26_TABLES)){
-   const open=db[table]||[],disk=saved[table]||[];
-   if(!Array.isArray(open)||!Array.isArray(disk))throw Error('Tabla LOCAL inválida: '+table);
-   if(open.length!==disk.length)inMemoryIssues.push(table+': distinto número de registros');
-   const openMap=new Map(open.map(r=>[String(r[pk]),r]));
-   if(openMap.size!==open.length)inMemoryIssues.push(table+': ID duplicados en memoria');
-   for(const r of disk){
-    const id=String(r[pk]),a=openMap.get(id);
-    if(!a){inMemoryIssues.push(table+' ID '+id+' ausente en memoria');continue;}
-    const normalized={...r};
-    if(table==='Proyectos'){
-     if(!Object.hasOwn(normalized,'Prioridades_Congreso')&&Array.isArray(a.Prioridades_Congreso)&&a.Prioridades_Congreso.length===0)normalized.Prioridades_Congreso=[];
-     if(!Object.hasOwn(normalized,'Tipo_Proyecto')&&a.Tipo_Proyecto==='')normalized.Tipo_Proyecto='';
-    }
-    if(!same(a,normalized))inMemoryIssues.push(table+' ID '+id+' distinto en memoria');
-   }
-  }
-  for(const k of new Set([...Object.keys(db),...Object.keys(saved)])){
-   if(Object.hasOwn(V26_TABLES,k))continue;
-   if(!same(db[k],saved[k]))inMemoryIssues.push('Propiedad LOCAL: '+k);
-  }
-  if(inMemoryIssues.length)throw Error('La copia abierta no coincide con la guardada: '+inMemoryIssues.slice(0,6).join('; '));
-  say('APROBADA: Chrome abierto y guardado coinciden, salvo campos vacíos predeterminados.');
-  const meta=await v24Meta();if(!meta||meta.eTag!==baseEtag)throw Error('OneDrive no tiene el ETag esperado.');
-  const remoteRaw=await v17lRemoteContent(meta);
-  const fileDigest=await v24Hash(remoteRaw);
-  say('Huella archivo cifrado REMOTO: '+fileDigest);
-  if(fileDigest!==baseFile)throw Error('El archivo cifrado de OneDrive cambió.');
-  const pass=prompt('Contraseña de OneDrive para comparar (solo lectura):');
-  if(pass===null){say('CANCELADO. Sin cambios.');return;}
-  const env=validateV23(JSON.parse(remoteRaw));
-  const remote=await v23Open(env,await v23Derive(pass,v23Unb64(env.salt)));
-  const remoteDigest=await v17jDigest(remote);
-  say('Huella datos REMOTOS: '+remoteDigest);
-  if(remoteDigest!==baseDigest)throw Error('Los datos REMOTOS no coinciden con la base verificada.');
-  if(v17eAnalyze(remote).issues.length)throw Error('Integridad REMOTA fallida.');
-  const changes=[],added=[];
-  for(const [table,pk] of Object.entries(V26_TABLES)){
-   const localRows=saved[table]||[],remoteRows=remote[table]||[];
-   const lm=new Map(localRows.map(r=>[String(r[pk]),r])),rm=new Map(remoteRows.map(r=>[String(r[pk]),r]));
-   if(lm.size!==localRows.length||rm.size!==remoteRows.length)changes.push(table+': ID duplicados');
-   for(const [id,r] of rm){if(!lm.has(id))changes.push(table+' ID '+id+' eliminado en Chrome');else if(!same(r,lm.get(id)))changes.push(table+' ID '+id+' modificado');}
-   for(const [id,r] of lm){if(!rm.has(id)){if(table==='Proyectos'&&r.Proyecto===newName)added.push({id,row:r});else changes.push(table+' ID '+id+' añadido inesperado');}}
-  }
-  for(const k of new Set([...Object.keys(saved),...Object.keys(remote)])){
-   if(Object.hasOwn(V26_TABLES,k))continue;
-   if(!same(saved[k],remote[k]))changes.push('Propiedad fuera de tablas: '+k);
-  }
-  if(added.length!==1)changes.push('Se esperaba un único proyecto nuevo; encontrados '+added.length);
-  if(changes.length)throw Error('Diferencias inesperadas: '+changes.slice(0,8).join('; '));
-  if((await v24Meta())?.eTag!==baseEtag)throw Error('OneDrive cambió durante la comprobación.');
-  if(localStorage.getItem(KEY)!==localRaw)throw Error('Chrome cambió durante la comprobación.');
-  say('APROBADA: Chrome tiene exactamente un proyecto nuevo: ID '+added[0].id+' — '+added[0].row.Proyecto);
-  say('APROBADA: los registros anteriores de las 12 tablas permanecen idénticos.');
-  say('ETag REMOTO: '+baseEtag);
-  say('SOLO LECTURA: Chrome y OneDrive no se han modificado. No se ha enviado nada.');
- }catch(e){say('BLOQUEADO: '+(e?.message||String(e)));say('No se ha enviado nada a OneDrive.');}
- finally{btn.disabled=false;}
-}
-</script></body></html>`);win.document.close();}
+function printReport(){let d=reportDataset();if(d.error)return alert(d.error);let win=window.open('','_blank');if(!win)return alert('El navegador ha bloqueado la ventana del informe. Permite las ventanas emergentes para este archivo.');win.document.open();win.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${E(d.title)}</title><style>.r-day-todo-title{font-size:21px!important;line-height:1.3;margin:0 0 6px!important;color:#19334e;font-weight:700;overflow-wrap:anywhere}.r-day-todo-meta{font-size:13px;color:#455b6e;margin:0 0 9px!important}.r-day-todo-head{break-inside:avoid;page-break-inside:avoid;break-after:avoid-page;page-break-after:avoid}.r-day-todo-head + p{margin-top:7px}.r-range-task>h3{font-size:21px!important;line-height:1.3;color:#19334e;margin:0 0 9px;overflow-wrap:anywhere}.r-range-task>h3 small{font-size:12px;font-weight:normal;color:#455b6e}.r-range-task>h3{break-after:avoid-page;page-break-after:avoid}</style><style>body{font:14px Arial,sans-serif;color:#223344;max-width:1100px;margin:30px auto;padding:0 20px;line-height:1.5}h1{font-size:24px}h2{border-bottom:2px solid #aac0d0;padding-bottom:6px;margin-top:30px}h3{font-size:16px;margin-bottom:5px}.r-task{break-inside:auto;page-break-inside:auto;border-top:1px solid #ddd;padding:12px 0}.r-task p{margin:6px 0}.r-table{border-collapse:collapse;width:100%;font-size:12px;table-layout:fixed;overflow-wrap:anywhere}.r-table th,.r-table td{border:1px solid #ccd5dc;padding:7px;vertical-align:top;text-align:left}.r-table th{background:#edf3f8}.muted{color:#667}.printbar{margin-bottom:24px}@media print{.printbar{display:none}body{margin:0;padding:0;max-width:none}h1,h2,h3,.r-todo-heading{break-after:avoid-page;page-break-after:avoid}h1+p{break-after:avoid-page;page-break-after:avoid}.r-task,.r-todo,.r-todo-note{break-inside:auto!important;page-break-inside:auto!important}.r-todo-note p,.r-todo-note li{orphans:2;widows:2}thead{display:table-header-group}@page{size:A4;margin:15mm}}</style><style id="v29b-compact-notes">.v29b-note-text{white-space:pre-wrap;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;margin:7px 0}.v29b-note-text.expanded{display:block;overflow:visible}.v29b-note-card{margin:8px 0;padding:12px!important}.v29b-todo-notes{margin-top:8px}.v29b-todo-notes .v29b-note-card{background:#f8fafc}.note-editor textarea{box-sizing:border-box;min-height:0!important}</style><style>.v29b-simple-list{background:white;border:1px solid #dfe6ee;border-radius:10px;overflow:hidden}.v29b-simple-head,.v29b-simple-row{display:grid;grid-template-columns:minmax(180px,2fr) minmax(120px,1fr) minmax(120px,1fr) 115px 110px;gap:12px;align-items:center;padding:12px 14px}.v29b-simple-head{background:#e8f1fa;font-size:13px}.v29b-simple-row{width:100%;border:0;border-top:1px solid #e7edf2;background:white;color:#1b2d40;text-align:left;font:inherit;cursor:pointer}.v29b-simple-row:hover,.v29b-simple-row:focus-visible{background:#eef6fc}.v29b-truncate{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}@media(max-width:850px){.v29b-simple-head{display:none}.v29b-simple-row{grid-template-columns:1fr 1fr;gap:5px}.v29b-simple-row span:first-child{grid-column:1/-1;font-weight:650;white-space:normal}.v29b-simple-row span:nth-child(3){grid-column:1/-1}}</style><style id="v29b-c7">.v29b-c7-list{border:1px solid #dfe6ee;border-radius:10px;overflow-x:auto;background:white}.v29b-c7-head,.v29b-c7-row{display:grid;grid-template-columns:minmax(150px,1.5fr) minmax(110px,1fr) minmax(190px,2.2fr) 105px 90px;gap:12px;align-items:start;padding:12px;border-bottom:1px solid #e7edf2;min-width:700px}.v29b-c7-head{background:#e8f1fa;font-size:13px}.v29b-c7-row:last-child{border-bottom:0}.v29b-c7-preview{font-size:13px;color:#455b6e;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;line-clamp:3;overflow:hidden;white-space:normal}.v29b-c7-plus{color:#176e9e;font-size:25px;font-weight:700;border:0;background:none;cursor:pointer;line-height:1}.v29b-c7-note-cell{display:flex;align-items:start;gap:7px}.v29b-c7-editor{border:1px solid #c9d5e0;border-radius:8px;padding:12px;min-height:110px;line-height:1.5;overflow-wrap:anywhere}.v29b-c7-editor ol,.v29b-c7-editor ul,.v29b-c7-full ol,.v29b-c7-full ul{padding-left:26px}.v29b-c7-full{line-height:1.5}.v29b-c7-full p{margin:0 0 9px}</style></head><body><div class="printbar"><button onclick="window.print()">Imprimir / Guardar como PDF</button></div>${reportMarkup(true)}</body></html>`);win.document.close();}
 function downloadReportCSV(){let d=reportDataset();if(d.error)return alert(d.error);let rows=[['Proyecto(s)','Equipo(s)','Tarea','Estado tarea','Descripción','Fecha próxima','Fecha to-do','To-do','Estado to-do','Fecha completado','Lugar(es)','Seguimiento']];for(let t of d.tasks){let tds=d.todos.filter(x=>String(x.Tarea_ID)===String(t.Tarea_ID));if(!tds.length)tds=[null];for(let x of tds)rows.push([taskP(t.Tarea_ID).map(i=>name('Proyectos',i)).join('; '),taskE(t.Tarea_ID).map(i=>name('Equipos',i)).join('; '),t.Tarea||'',t.Estado||'',t.Description||'',disp(taskFecha8(t)),x?disp(todoFecha8(x)):'',x?.To_Do||'',x?.Estatus||'',x?disp(x.Fecha_Completado):'',t.Lugares||'',x?reportNotes(x):'']);}let csv='\uFEFF'+rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');let blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='Informe_'+new Date().toISOString().slice(0,10)+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)}
 
 $('#backup').onclick=exportData;
@@ -2109,87 +1947,6 @@ async function v17l19PostCheck(){
  }catch(e){say('BLOQUEADO: '+(e?.message||String(e)));}
  finally{v17l19Busy=false;btn.disabled=false;}
 }
-</script><script>
-async function v17l20Check(){
- const btn=document.getElementById('v17l20-btn'),out=document.getElementById('v17l20-out');
- if(!btn||btn.disabled||!out)return;btn.disabled=true;out.replaceChildren();
- const say=t=>{const p=document.createElement('p');p.textContent=t;out.append(p)};
- const canon=x=>Array.isArray(x)?x.map(canon):x&&typeof x==='object'?Object.fromEntries(Object.keys(x).sort().map(k=>[k,canon(x[k])])):x;
- const same=(a,b)=>JSON.stringify(canon(a))===JSON.stringify(canon(b));
- const baseDigest='2370c6fcd03a89d6ad9df0dc5eae91e3d890d4df489745ab5eaabf00601feaf0';
- const baseFile='0c6f304111f26b38dc686e50a57a354b66454b7940ec0339458e463675eaf011';
- const baseEtag='"{3E3A9AC0-504C-45DC-B671-64408EEC991B},3"';
- const newName='Prueba Sincronización 17L20 Chrome';
- try{
-  await saveQueue;
-  if(!v23Key)throw Error('Desbloquea primero la base LOCAL de Chrome.');
-  const localRaw=localStorage.getItem(KEY);if(!localRaw)throw Error('No hay base LOCAL cifrada.');
-  const saved=await v23Open(validateV23(JSON.parse(localRaw)),v23Key);
-  const savedDigest=await v17jDigest(saved);
-  say('Huella LOCAL guardada: '+savedDigest);
-  if(savedDigest===baseDigest)throw Error('No se ha guardado todavía el nuevo proyecto en la copia LOCAL.');
-  const localIssues=v17eAnalyze(saved).issues;
-  if(localIssues.length)throw Error('Integridad LOCAL: '+localIssues.slice(0,4).join('; '));
-  const inMemoryIssues=[];
-  for(const [table,pk] of Object.entries(V26_TABLES)){
-   const open=db[table]||[],disk=saved[table]||[];
-   if(!Array.isArray(open)||!Array.isArray(disk))throw Error('Tabla LOCAL inválida: '+table);
-   if(open.length!==disk.length)inMemoryIssues.push(table+': distinto número de registros');
-   const openMap=new Map(open.map(r=>[String(r[pk]),r]));
-   if(openMap.size!==open.length)inMemoryIssues.push(table+': ID duplicados en memoria');
-   for(const r of disk){
-    const id=String(r[pk]),a=openMap.get(id);
-    if(!a){inMemoryIssues.push(table+' ID '+id+' ausente en memoria');continue;}
-    const normalized={...r};
-    if(table==='Proyectos'){
-     if(!Object.hasOwn(normalized,'Prioridades_Congreso')&&Array.isArray(a.Prioridades_Congreso)&&a.Prioridades_Congreso.length===0)normalized.Prioridades_Congreso=[];
-     if(!Object.hasOwn(normalized,'Tipo_Proyecto')&&a.Tipo_Proyecto==='')normalized.Tipo_Proyecto='';
-    }
-    if(!same(a,normalized))inMemoryIssues.push(table+' ID '+id+' distinto en memoria');
-   }
-  }
-  for(const k of new Set([...Object.keys(db),...Object.keys(saved)])){
-   if(Object.hasOwn(V26_TABLES,k))continue;
-   if(!same(db[k],saved[k]))inMemoryIssues.push('Propiedad LOCAL: '+k);
-  }
-  if(inMemoryIssues.length)throw Error('La copia abierta no coincide con la guardada: '+inMemoryIssues.slice(0,6).join('; '));
-  say('APROBADA: Chrome abierto y guardado coinciden, salvo campos vacíos predeterminados.');
-  const meta=await v24Meta();if(!meta||meta.eTag!==baseEtag)throw Error('OneDrive no tiene el ETag esperado.');
-  const remoteRaw=await v17lRemoteContent(meta);
-  const fileDigest=await v24Hash(remoteRaw);
-  say('Huella archivo cifrado REMOTO: '+fileDigest);
-  if(fileDigest!==baseFile)throw Error('El archivo cifrado de OneDrive cambió.');
-  const pass=prompt('Contraseña de OneDrive para comparar (solo lectura):');
-  if(pass===null){say('CANCELADO. Sin cambios.');return;}
-  const env=validateV23(JSON.parse(remoteRaw));
-  const remote=await v23Open(env,await v23Derive(pass,v23Unb64(env.salt)));
-  const remoteDigest=await v17jDigest(remote);
-  say('Huella datos REMOTOS: '+remoteDigest);
-  if(remoteDigest!==baseDigest)throw Error('Los datos REMOTOS no coinciden con la base verificada.');
-  if(v17eAnalyze(remote).issues.length)throw Error('Integridad REMOTA fallida.');
-  const changes=[],added=[];
-  for(const [table,pk] of Object.entries(V26_TABLES)){
-   const localRows=saved[table]||[],remoteRows=remote[table]||[];
-   const lm=new Map(localRows.map(r=>[String(r[pk]),r])),rm=new Map(remoteRows.map(r=>[String(r[pk]),r]));
-   if(lm.size!==localRows.length||rm.size!==remoteRows.length)changes.push(table+': ID duplicados');
-   for(const [id,r] of rm){if(!lm.has(id))changes.push(table+' ID '+id+' eliminado en Chrome');else if(!same(r,lm.get(id)))changes.push(table+' ID '+id+' modificado');}
-   for(const [id,r] of lm){if(!rm.has(id)){if(table==='Proyectos'&&r.Proyecto===newName)added.push({id,row:r});else changes.push(table+' ID '+id+' añadido inesperado');}}
-  }
-  for(const k of new Set([...Object.keys(saved),...Object.keys(remote)])){
-   if(Object.hasOwn(V26_TABLES,k))continue;
-   if(!same(saved[k],remote[k]))changes.push('Propiedad fuera de tablas: '+k);
-  }
-  if(added.length!==1)changes.push('Se esperaba un único proyecto nuevo; encontrados '+added.length);
-  if(changes.length)throw Error('Diferencias inesperadas: '+changes.slice(0,8).join('; '));
-  if((await v24Meta())?.eTag!==baseEtag)throw Error('OneDrive cambió durante la comprobación.');
-  if(localStorage.getItem(KEY)!==localRaw)throw Error('Chrome cambió durante la comprobación.');
-  say('APROBADA: Chrome tiene exactamente un proyecto nuevo: ID '+added[0].id+' — '+added[0].row.Proyecto);
-  say('APROBADA: los registros anteriores de las 12 tablas permanecen idénticos.');
-  say('ETag REMOTO: '+baseEtag);
-  say('SOLO LECTURA: Chrome y OneDrive no se han modificado. No se ha enviado nada.');
- }catch(e){say('BLOQUEADO: '+(e?.message||String(e)));say('No se ha enviado nada a OneDrive.');}
- finally{btn.disabled=false;}
-}
 </script></body></html>
 <script>
 async function v28SeedCloud(){
@@ -2513,7 +2270,7 @@ function v17lPanel(){
  <label><input type="checkbox" id="v17l-backups" onchange="v17lUpdate()"> He guardado por separado los respaldos cifrados LOCAL y REMOTO.</label>
  <div class="toolbar"><button class="btn primary" id="v17l-upload" onclick="v17lUpload()" disabled>5. Enviar base cifrada con protección de versión</button></div>
  <div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.10 · Preparación del envío protegido</h3><p>Comprueba las huellas y los nombres de proyectos antes de cualquier envío. Solo lectura.</p><button class="btn primary" type="button" onclick="v17l10Preflight()">Ejecutar comprobación final (solo lectura)</button><div id="v17l10-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.11.2 · Verificación de contenido de respaldos (solo lectura)</h3><p>Selecciona las dos copias cifradas guardadas. Este paso compara los datos descifrados del respaldo LOCAL y la base actual, no los bytes cifrados. No envía datos a OneDrive.</p><label>Respaldo LOCAL cifrado <input type="file" id="v17l111-local" accept=".json,application/json"></label><label>Respaldo REMOTO cifrado <input type="file" id="v17l111-remote" accept=".json,application/json"></label><p><button class="btn primary" type="button" onclick="v17l111Check()">Comprobar respaldos (sin enviar)</button></p><div id="v17l111-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px">
-<div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.16.2 · Diagnóstico de copia local y comparación</h3><p>Compara la base abierta y la copia cifrada guardada; muestra diferencias antes de cualquier intento de envío. Solo lectura.</p><button class="btn primary" type="button" id="v17l161-check" onclick="v17l161Check()">Diagnosticar diferencia (sin enviar)</button><div id="v17l161-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.16.3 · Comparación de campos del Proyecto 5 (solo lectura)</h3><p>Compara los valores de cada campo entre la base abierta y la copia cifrada guardada. No cambia ningún dato ni contacta OneDrive.</p><button class="btn primary" type="button" onclick="v17l163Compare()" id="v17l163-btn">Comparar campos del Proyecto 5 (sin enviar)</button><div id="v17l163-out" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.16.4 · Validación de valores vacíos y cambio único (solo lectura)</h3><p>Comprueba los dos valores predeterminados del Proyecto 5 y compara la copia LOCAL guardada con OneDrive, registro por registro en las 12 tablas. No envía datos.</p><button class="btn primary" id="v17l164-btn" type="button" onclick="v17l164Check()">Verificar cambio único (sin enviar)</button><div id="v17l164-out" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.17 · Envío condicional del proyecto nuevo</h3><p>Solo Edge. Verifica un único proyecto adicional frente a OneDrive, pide confirmación y comprueba la descarga después del envío. Conserva tus respaldos anteriores.</p><button class="btn primary" id="v17l17-btn" type="button" onclick="v17l17Upload()">Verificar y enviar proyecto nuevo (con confirmación)</button><div id="v17l17-out" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.18 · Verificación previa de recepción en Chrome (solo lectura)</h3><p>Ejecutar únicamente en Chrome. Compara la copia LOCAL guardada con OneDrive antes de recibir el Proyecto 5. No modifica ningún dato.</p><button class="btn primary" type="button" id="v17l18-btn" onclick="v17l18Preflight()">Comprobar Chrome y OneDrive (sin recibir)</button><div id="v17l18-out" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.19 · Recepción protegida en Chrome</h3><p>Solo Chrome. Verifica ambas copias, guarda una copia cifrada anterior en este navegador y descarga un respaldo antes de reemplazar la base LOCAL. No modifica OneDrive.</p><button class="btn primary" type="button" id="v17l19-btn" onclick="v17l19Receive()">Verificar y recibir Proyecto 5 (con confirmación)</button> <button class="btn" type="button" id="v17l19-check-btn" onclick="v17l19PostCheck()">Comprobar recepción después de desbloquear</button><div id="v17l19-out" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.20 · Verificación inversa Chrome → OneDrive (solo lectura)</h3><p>Comprueba que Chrome tiene exactamente un proyecto nuevo y que OneDrive mantiene la versión verificada. No modifica datos ni envía archivos.</p><button class="btn primary" id="v17l20-btn" type="button" onclick="v17l20Check()">Verificar proyecto nuevo de Chrome (sin enviar)</button><div id="v17l20-out" aria-live="polite"></div></div><h3>17L.15 · Preparación de sincronización entre navegadores (solo lectura)</h3>
+<div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.16.2 · Diagnóstico de copia local y comparación</h3><p>Compara la base abierta y la copia cifrada guardada; muestra diferencias antes de cualquier intento de envío. Solo lectura.</p><button class="btn primary" type="button" id="v17l161-check" onclick="v17l161Check()">Diagnosticar diferencia (sin enviar)</button><div id="v17l161-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.16.3 · Comparación de campos del Proyecto 5 (solo lectura)</h3><p>Compara los valores de cada campo entre la base abierta y la copia cifrada guardada. No cambia ningún dato ni contacta OneDrive.</p><button class="btn primary" type="button" onclick="v17l163Compare()" id="v17l163-btn">Comparar campos del Proyecto 5 (sin enviar)</button><div id="v17l163-out" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.16.4 · Validación de valores vacíos y cambio único (solo lectura)</h3><p>Comprueba los dos valores predeterminados del Proyecto 5 y compara la copia LOCAL guardada con OneDrive, registro por registro en las 12 tablas. No envía datos.</p><button class="btn primary" id="v17l164-btn" type="button" onclick="v17l164Check()">Verificar cambio único (sin enviar)</button><div id="v17l164-out" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.17 · Envío condicional del proyecto nuevo</h3><p>Solo Edge. Verifica un único proyecto adicional frente a OneDrive, pide confirmación y comprueba la descarga después del envío. Conserva tus respaldos anteriores.</p><button class="btn primary" id="v17l17-btn" type="button" onclick="v17l17Upload()">Verificar y enviar proyecto nuevo (con confirmación)</button><div id="v17l17-out" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.18 · Verificación previa de recepción en Chrome (solo lectura)</h3><p>Ejecutar únicamente en Chrome. Compara la copia LOCAL guardada con OneDrive antes de recibir el Proyecto 5. No modifica ningún dato.</p><button class="btn primary" type="button" id="v17l18-btn" onclick="v17l18Preflight()">Comprobar Chrome y OneDrive (sin recibir)</button><div id="v17l18-out" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.19 · Recepción protegida en Chrome</h3><p>Solo Chrome. Verifica ambas copias, guarda una copia cifrada anterior en este navegador y descarga un respaldo antes de reemplazar la base LOCAL. No modifica OneDrive.</p><button class="btn primary" type="button" id="v17l19-btn" onclick="v17l19Receive()">Verificar y recibir Proyecto 5 (con confirmación)</button> <button class="btn" type="button" id="v17l19-check-btn" onclick="v17l19PostCheck()">Comprobar recepción después de desbloquear</button><div id="v17l19-out" aria-live="polite"></div></div><h3>17L.15 · Preparación de sincronización entre navegadores (solo lectura)</h3>
 <p>Comprueba la base LOCAL, el archivo de OneDrive y su versión actual sin depender de la huella histórica fija. No cambia datos ni activa el envío.</p>
 <p><button class="btn primary" type="button" id="v17l15-check" onclick="v17l15Check()">Comprobar punto de partida para sincronización</button></p>
 <div id="v17l15-result" aria-live="polite"></div>
