@@ -1,7 +1,7 @@
-const CACHE='tareas-gobierno-v29b-shell-7';
+const CACHE='tareas-gobierno-v29b-c17l11';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon.svg'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())); });
-self.addEventListener('activate', event => { event.waitUntil((async()=>{for(const key of await caches.keys()){if(key.startsWith('tareas-gobierno-v29b-shell-')&&key!==CACHE)await caches.delete(key)}await self.clients.claim()})()); });
+self.addEventListener('activate', event => { event.waitUntil((async()=>{for(const key of await caches.keys()){if(key.startsWith('tareas-gobierno-v29b-')&&key!==CACHE)await caches.delete(key)}await self.clients.claim()})()); });
 self.addEventListener('fetch', event => {
  const req=event.request;
  if(req.method!=='GET'||new URL(req.url).origin!==self.location.origin)return;
