@@ -1522,7 +1522,42 @@ async function v17l161Check(){
  finally{v17l161Busy=false;btn.disabled=false;}
 }
 </script>
-</body></html>
+<script>
+async function v17l163Compare(){
+ const out=document.getElementById('v17l163-out'),btn=document.getElementById('v17l163-btn');
+ if(!out||btn.disabled)return;btn.disabled=true;out.replaceChildren();
+ const say=t=>{const p=document.createElement('p');p.textContent=t;out.appendChild(p)};
+ const canon=x=>{if(Array.isArray(x))return x.map(canon);if(x&&typeof x==='object')return Object.fromEntries(Object.keys(x).sort().map(k=>[k,canon(x[k])]));return x};
+ const display=x=>x===undefined?'(campo ausente)':JSON.stringify(x);
+ try{
+  await saveQueue;
+  if(!v23Key)throw Error('Desbloquea primero la base local.');
+  const raw=localStorage.getItem(KEY);if(!raw)throw Error('No se encuentra copia cifrada LOCAL.');
+  const saved=await v23Open(validateV23(JSON.parse(raw)),v23Key);
+  const pk=V26_TABLES.Proyectos;
+  const openRows=(db.Proyectos||[]).filter(x=>String(x[pk])==='5');
+  const savedRows=(saved.Proyectos||[]).filter(x=>String(x[pk])==='5');
+  if(openRows.length!==1||savedRows.length!==1)throw Error('El proyecto 5 no aparece exactamente una vez en ambas copias.');
+  const a=openRows[0],b=savedRows[0];
+  say('Huella LOCAL abierta: '+await v17jDigest(db));
+  say('Huella LOCAL guardada: '+await v17jDigest(saved));
+  let n=0;
+  for(const k of [...new Set([...Object.keys(a),...Object.keys(b)])].sort()){
+   const av=Object.prototype.hasOwnProperty.call(a,k)?a[k]:undefined;
+   const bv=Object.prototype.hasOwnProperty.call(b,k)?b[k]:undefined;
+   if(JSON.stringify(canon(av))!==JSON.stringify(canon(bv))){
+    n++;say('CAMPO DIFERENTE: '+k);say('  ABIERTA: '+display(av));say('  GUARDADA: '+display(bv));
+   }
+  }
+  if(!n){
+   if(JSON.stringify(a)!==JSON.stringify(b))say('SIN DIFERENCIAS DE VALOR: solo cambia el orden de las propiedades del Proyecto 5.');
+   else say('El Proyecto 5 coincide exactamente; revisar cambios de otras filas o el orden de registros.');
+  }else say('TOTAL: '+n+' campos con diferencias reales. No se ha guardado ni corregido nada.');
+  say('SOLO LECTURA: ni LOCAL ni OneDrive han sido modificados.');
+ }catch(e){say('BLOQUEADO: '+e.message+' No se ha modificado ningún dato.');}
+ finally{btn.disabled=false;}
+}
+</script></body></html>
 <script>
 async function v28SeedCloud(){
  if(v24Busy)return;v24Busy=true;
@@ -1845,7 +1880,7 @@ function v17lPanel(){
  <label><input type="checkbox" id="v17l-backups" onchange="v17lUpdate()"> He guardado por separado los respaldos cifrados LOCAL y REMOTO.</label>
  <div class="toolbar"><button class="btn primary" id="v17l-upload" onclick="v17lUpload()" disabled>5. Enviar base cifrada con protección de versión</button></div>
  <div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.10 · Preparación del envío protegido</h3><p>Comprueba las huellas y los nombres de proyectos antes de cualquier envío. Solo lectura.</p><button class="btn primary" type="button" onclick="v17l10Preflight()">Ejecutar comprobación final (solo lectura)</button><div id="v17l10-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.11.2 · Verificación de contenido de respaldos (solo lectura)</h3><p>Selecciona las dos copias cifradas guardadas. Este paso compara los datos descifrados del respaldo LOCAL y la base actual, no los bytes cifrados. No envía datos a OneDrive.</p><label>Respaldo LOCAL cifrado <input type="file" id="v17l111-local" accept=".json,application/json"></label><label>Respaldo REMOTO cifrado <input type="file" id="v17l111-remote" accept=".json,application/json"></label><p><button class="btn primary" type="button" onclick="v17l111Check()">Comprobar respaldos (sin enviar)</button></p><div id="v17l111-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px">
-<div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.16.2 · Diagnóstico de copia local y comparación</h3><p>Compara la base abierta y la copia cifrada guardada; muestra diferencias antes de cualquier intento de envío. Solo lectura.</p><button class="btn primary" type="button" id="v17l161-check" onclick="v17l161Check()">Diagnosticar diferencia (sin enviar)</button><div id="v17l161-result" aria-live="polite"></div></div><h3>17L.15 · Preparación de sincronización entre navegadores (solo lectura)</h3>
+<div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.16.2 · Diagnóstico de copia local y comparación</h3><p>Compara la base abierta y la copia cifrada guardada; muestra diferencias antes de cualquier intento de envío. Solo lectura.</p><button class="btn primary" type="button" id="v17l161-check" onclick="v17l161Check()">Diagnosticar diferencia (sin enviar)</button><div id="v17l161-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.16.3 · Comparación de campos del Proyecto 5 (solo lectura)</h3><p>Compara los valores de cada campo entre la base abierta y la copia cifrada guardada. No cambia ningún dato ni contacta OneDrive.</p><button class="btn primary" type="button" onclick="v17l163Compare()" id="v17l163-btn">Comparar campos del Proyecto 5 (sin enviar)</button><div id="v17l163-out" aria-live="polite"></div></div><h3>17L.15 · Preparación de sincronización entre navegadores (solo lectura)</h3>
 <p>Comprueba la base LOCAL, el archivo de OneDrive y su versión actual sin depender de la huella histórica fija. No cambia datos ni activa el envío.</p>
 <p><button class="btn primary" type="button" id="v17l15-check" onclick="v17l15Check()">Comprobar punto de partida para sincronización</button></p>
 <div id="v17l15-result" aria-live="polite"></div>
