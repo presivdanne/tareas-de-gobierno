@@ -1444,7 +1444,28 @@ async function v17l161Check(){
   if(!raw)throw Error('Falta la copia LOCAL cifrada.');
   const saved=await v23Open(validateV23(JSON.parse(raw)),v23Key);
   const localHash=await v17jDigest(db);
-  if(localHash!==await v17jDigest(saved))throw Error('LOCAL abierta y guardada no coinciden.');
+  if(localHash!==await v17jDigest(saved)){
+   say('DIAGNÓSTICO: huella LOCAL abierta: '+localHash);
+   say('DIAGNÓSTICO: huella LOCAL guardada: '+await v17jDigest(saved));
+   const diffs=[];
+   for(const [table,pk] of Object.entries(V26_TABLES)){
+    const a=db[table]||[],b=saved[table]||[];
+    const ma=new Map(a.map(r=>[String(r[pk]),r])),mb=new Map(b.map(r=>[String(r[pk]),r]));
+    for(const id of new Set([...ma.keys(),...mb.keys()])){
+     if(!ma.has(id))diffs.push(table+' ID '+id+': solo en copia guardada');
+     else if(!mb.has(id))diffs.push(table+' ID '+id+': solo en memoria');
+     else if(JSON.stringify(ma.get(id))!==JSON.stringify(mb.get(id)))diffs.push(table+' ID '+id+': distinto contenido u orden de campos');
+    }
+    if(a.length!==b.length)diffs.push(table+': '+a.length+' en memoria / '+b.length+' guardados');
+   }
+   for(const k of new Set([...Object.keys(db),...Object.keys(saved)])){
+    if(k in V26_TABLES)continue;
+    if(JSON.stringify(db[k])!==JSON.stringify(saved[k]))diffs.push('Propiedad fuera de tablas: '+k);
+   }
+   if(!diffs.length) say('Los registros coinciden por ID y JSON; la diferencia puede ser el orden de los registros o de las propiedades.');
+   else diffs.slice(0,25).forEach(x=>say(x));
+   throw Error('La copia abierta y guardada difieren; diagnóstico mostrado arriba.');
+  }
   if(localHash!==changed)throw Error('La huella LOCAL ha cambiado desde la comprobación 17L.16.');
   if(v17eAnalyze(db).issues.length)throw Error('Problemas de integridad LOCAL.');
   const meta=await v24Meta();if(!meta)throw Error('Falta el archivo remoto.');
@@ -1824,7 +1845,7 @@ function v17lPanel(){
  <label><input type="checkbox" id="v17l-backups" onchange="v17lUpdate()"> He guardado por separado los respaldos cifrados LOCAL y REMOTO.</label>
  <div class="toolbar"><button class="btn primary" id="v17l-upload" onclick="v17lUpload()" disabled>5. Enviar base cifrada con protección de versión</button></div>
  <div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.10 · Preparación del envío protegido</h3><p>Comprueba las huellas y los nombres de proyectos antes de cualquier envío. Solo lectura.</p><button class="btn primary" type="button" onclick="v17l10Preflight()">Ejecutar comprobación final (solo lectura)</button><div id="v17l10-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.11.2 · Verificación de contenido de respaldos (solo lectura)</h3><p>Selecciona las dos copias cifradas guardadas. Este paso compara los datos descifrados del respaldo LOCAL y la base actual, no los bytes cifrados. No envía datos a OneDrive.</p><label>Respaldo LOCAL cifrado <input type="file" id="v17l111-local" accept=".json,application/json"></label><label>Respaldo REMOTO cifrado <input type="file" id="v17l111-remote" accept=".json,application/json"></label><p><button class="btn primary" type="button" onclick="v17l111Check()">Comprobar respaldos (sin enviar)</button></p><div id="v17l111-result" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:14px">
-<div class="panel" style="border:2px solid #176e9e;margin-top:14px"><h3>17L.16.1 · Comparación exacta del nuevo proyecto (solo lectura)</h3><p>Compara las 12 tablas por ID y contenido. Solo aprueba un nuevo proyecto llamado Prueba Sincronización 17L16 y ninguna otra modificación.</p><button class="btn primary" type="button" id="v17l161-check" onclick="v17l161Check()">Comparar cambios con OneDrive (sin enviar)</button><div id="v17l161-result" aria-live="polite"></div></div><h3>17L.15 · Preparación de sincronización entre navegadores (solo lectura)</h3>
+<h3>17L.15 · Preparación de sincronización entre navegadores (solo lectura)</h3>
 <p>Comprueba la base LOCAL, el archivo de OneDrive y su versión actual sin depender de la huella histórica fija. No cambia datos ni activa el envío.</p>
 <p><button class="btn primary" type="button" id="v17l15-check" onclick="v17l15Check()">Comprobar punto de partida para sincronización</button></p>
 <div id="v17l15-result" aria-live="polite"></div>
