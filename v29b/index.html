@@ -1519,7 +1519,7 @@ function v17l4RenderProof(){
 
  const auditButton=document.createElement('button');auditButton.className='btn';auditButton.textContent='17L.6 · Auditar si la fusión local ya incluye OneDrive (solo lectura)';auditButton.addEventListener('click',v17l5Audit);box.append(auditButton);
  const auditOutput=document.createElement('div');auditOutput.id='v17l5-audit';auditOutput.setAttribute('aria-live','polite');box.append(auditOutput);
- const history=document.createElement('div');history.id='v17l6-history';history.className='panel';history.style.cssText='margin-top:14px;border:1px solid #8ea6ba';history.innerHTML=`<h3>17L.6 · Verificar evidencias de 17J y 17K (solo lectura)</h3><p>Selecciona el archivo de decisiones 17J y la copia cifrada ANTES de 17K. Opcionalmente, selecciona también la segunda copia original. Ningún archivo ni contraseña se envía a servidores. No se restaurará ningún dato.</p><label>Decisiones 17J <input type="file" id="v17l6-decisions" accept=".json,application/json"></label><label>Copia cifrada antes de 17K <input type="file" id="v17l6-before" accept=".json,application/json"></label><label>Segunda copia original (opcional) <input type="file" id="v17l6-second" accept=".json,application/json"></label><label>Contraseña de las copias (solo en este dispositivo) <input type="password" id="v17l6-pass" autocomplete="off"></label><button class="btn" type="button" id="v17l6-check">Comprobar huellas sin modificar datos</button><div id="v17l6-results" aria-live="polite"></div>`;box.append(history);history.querySelector('#v17l6-check').addEventListener('click',v17l6Verify);
+ const history=document.createElement('div');history.id='v17l6-history';history.className='panel';history.style.cssText='margin-top:14px;border:1px solid #8ea6ba';history.innerHTML=`<h3>17L.6 · Verificar evidencias de 17J y 17K (solo lectura)</h3><p>Selecciona el archivo de decisiones 17J y la copia cifrada ANTES de 17K. Opcionalmente, selecciona también la segunda copia original. Ningún archivo ni contraseña se envía a servidores. No se restaurará ningún dato.</p><label>Decisiones 17J <input type="file" id="v17l6-decisions" accept=".json,application/json"></label><label>Copia cifrada antes de 17K <input type="file" id="v17l6-before" accept=".json,application/json"></label><label>Segunda copia original (opcional) <input type="file" id="v17l6-second" accept=".json,application/json"></label><label>Contraseña de las copias (solo en este dispositivo) <input type="password" id="v17l6-pass" autocomplete="off"></label><button class="btn" type="button" id="v17l6-check">Comprobar huellas sin modificar datos</button><div id="v17l6-results" aria-live="polite"></div>`;box.append(history);history.querySelector('#v17l6-check').addEventListener('click',v17l6Verify);const b=document.createElement('button');b.className='btn';b.type='button';b.id='v17l7-check';b.textContent='17L.7 · Reconstruir y comparar fusión (solo lectura)';history.append(b);const result=document.createElement('div');result.id='v17l7-results';result.setAttribute('aria-live','polite');history.append(result);b.addEventListener('click',v17l7Verify);
  out.prepend(box);
 }
 
@@ -1650,4 +1650,113 @@ nav=function(page,...args){if(page==='onedrive17l'){v17lPanel();return;}return v
 // Legacy page hook is installed through the navigation wrapper below.
 function v17lLegacyHook(){const content=document.getElementById('content');if(content){const panel=document.createElement('div');panel.className='panel';panel.style.border='2px solid #176e9e';panel.innerHTML='<h3>17L · OneDrive V29b (archivo diferente del 17A)</h3><p>Para la transferencia manual de la base V29b, utiliza la pantalla 17L. No uses «Crear copia inicial» para actualizar un archivo existente.</p><button class="btn primary" onclick="nav(\'onedrive17l\')">Abrir transferencia protegida 17L</button>';content.prepend(panel)}};
 const v17lBaseNav=nav;nav=function(page,...args){if(page==='onedrive17l'){v17lPanel();return;}const result=v17lBaseNav(page,...args);if(page==='onedrive17a')v17lLegacyHook();return result};
+</script>
+
+<script>
+// 17L.7: Historical replay of the 17H/17I.1 candidate algorithm, read-only.
+// No writes, no remote upload, no authorization of baseline.
+async function v17l7Verify(){
+ const out=document.getElementById('v17l7-results'),btn=document.getElementById('v17l7-check');if(!out||!btn)return;
+ out.replaceChildren();btn.disabled=true;
+ const add=(tag,value)=>{const e=document.createElement(tag);e.textContent=String(value);out.append(e);return e};
+ try{
+  await saveQueue;
+  const proof=v17l2ReviewProof;
+  if(!proof||proof.review!==v17hReview)throw Error('Primero comprueba el archivo remoto y revisa OneDrive con las 12 tablas (pasos 1 y 4).');
+  const files=['v17l6-decisions','v17l6-before','v17l6-second'].map(id=>document.getElementById(id)?.files?.[0]);
+  if(files.some(f=>!f))throw Error('Selecciona los tres archivos: decisiones, copia ANTES de 17K y 17b2 edge.');
+  if(files.some(f=>f.size>20000000))throw Error('Archivo demasiado grande.');
+  const pass=document.getElementById('v17l6-pass').value;if(!pass)throw Error('Introduce la contraseña de las copias.');
+  const decisions=JSON.parse(await files[0].text());
+  if(decisions.format!=='tareas-v29b-17j-review-only'||decisions.version!==1||!decisions.choices||!decisions.sourceHashes)throw Error('Decisiones 17J no válidas.');
+  const read=async f=>{const env=validateV23(JSON.parse(await f.text()));return await v23Open(env,await v23Derive(pass,v23Unb64(env.salt)))};
+  const originals=[await read(files[1]),await read(files[2])];
+  const hashes=await Promise.all(originals.map(v17jDigest));
+  const expected=decisions.sourceHashes;
+  if(new Set(hashes).size!==2||!hashes.includes(expected.chrome)||!hashes.includes(expected.edge))throw Error('Las copias no corresponden a las DOS fuentes originales de 17J.');
+  const chrome=originals[hashes.indexOf(expected.chrome)],edge=originals[hashes.indexOf(expected.edge)];
+  const localHash=await v17jDigest(db);if(localHash!==proof.localDigest)throw Error('LOCAL ha cambiado desde la revisión remota. Repite el paso 4.');
+  if((await v17jDigest(proof.review.remote))!==proof.remoteDigest)throw Error('La prueba remota ya no coincide.');
+  const issues=[...v17eAnalyze(chrome).issues.map(x=>'Chrome: '+x),...v17eAnalyze(edge).issues.map(x=>'Edge: '+x)];
+  if(issues.length)throw Error('Las fuentes originales tienen problemas de integridad: '+issues.slice(0,3).join('; '));
+  // Match historical 17H conflicts and unique rows, with Chrome as local and Edge as remote.
+  const conflicts=[],unique=[];
+  for(const [table,pk] of Object.entries(V26_TABLES)){
+   const a=new Map((chrome[table]||[]).map(r=>[String(r[pk]),r]));
+   const b=new Map((edge[table]||[]).map(r=>[String(r[pk]),r]));
+   for(const [id,row] of a){if(!b.has(id))unique.push({table,id,row,side:'Chrome'});else if(!v26Same(row,b.get(id))){const other=b.get(id);const fields=[...new Set([...Object.keys(row),...Object.keys(other)])].filter(f=>!v26Same(row[f],other[f]));conflicts.push({table,id,a:row,b:other,fields});}}
+   for(const [id,row] of b)if(!a.has(id))unique.push({table,id,row,side:'Edge'});
+  }
+  const key=(t,id,f)=>JSON.stringify([t,String(id),f]);
+  const choices=decisions.choices,required=new Set(),refs=[];
+  for(const c of conflicts){
+   const both=key(c.table,c.id,'__both');
+   if(choices[both]==='both')required.add(both);
+   else for(const f of c.fields)required.add(key(c.table,c.id,f));
+   if(choices[both]==='both')for(const [child,field,parent] of v17eRelationships){
+    if(parent!==c.table)continue;
+    const pk=V26_TABLES[child];
+    for(const row of edge[child]||[])if(String(row[field])===String(c.id)){
+     const refKey=key(child,row[pk],field+'|'+c.table+'|'+c.id);
+     required.add(refKey);refs.push({parent:c.table,parentId:c.id,child,field,pk,id:row[pk],key:refKey});
+    }
+   }
+  }
+  const unresolved=[...required].filter(k=>!['chrome','edge','both'].includes(choices[k]));
+  const extra=Object.keys(choices).filter(k=>!required.has(k));
+  if(unresolved.length||extra.length){add('h4','REVISIÓN PENDIENTE');add('p',`Decisiones sin resolver: ${unresolved.length}; claves históricas no reconocidas: ${extra.length}.`);for(const x of [...unresolved,...extra].slice(0,20))add('p',x);throw Error('Las decisiones no corresponden exactamente a los conflictos originales; no se reconstruye una fusión incompleta.');}
+  const candidate=structuredClone(chrome),remaps=new Map();
+  for(const [table,pk] of Object.entries(V26_TABLES)){
+   candidate[table]=Array.isArray(candidate[table])?candidate[table]:[];
+   const map=new Map(candidate[table].map((r,i)=>[String(r[pk]),i]));
+   for(const u of unique.filter(u=>u.table===table&&u.side==='Edge'))if(!map.has(String(u.id))){candidate[table].push(structuredClone(u.row));map.set(String(u.id),candidate[table].length-1)}
+   for(const c of conflicts.filter(c=>c.table===table)){
+    const i=map.get(String(c.id));if(i===undefined)throw Error('Registro de conflicto no encontrado.');
+    if(choices[key(table,c.id,'__both')]==='both'){
+     const newId=Math.max(0,...candidate[table].map(r=>Number(r[pk])))+1;
+     if(!Number.isSafeInteger(newId))throw Error('ID nuevo no seguro.');
+     const copy=structuredClone(c.b);copy[pk]=newId;candidate[table].push(copy);map.set(String(newId),candidate[table].length-1);remaps.set(key(table,c.id,'new'),newId);continue;
+    }
+    for(const f of c.fields)if(choices[key(table,c.id,f)]==='edge'){
+     if(Object.prototype.hasOwnProperty.call(c.b,f))candidate[table][i][f]=structuredClone(c.b[f]);else delete candidate[table][i][f];
+    }
+   }
+  }
+  for(const ref of refs){
+   const decision=choices[ref.key],targetId=remaps.get(key(ref.parent,ref.parentId,'new'));
+   if(targetId===undefined)throw Error('Falta reasignación de proyecto.');
+   const row=(candidate[ref.child]||[]).find(r=>String(r[ref.pk])===String(ref.id));if(!row)throw Error('Referencia original ausente: '+ref.key);
+   if(decision==='edge')row[ref.field]=targetId;
+   if(decision==='both'){
+    const copy=structuredClone(row);copy[ref.field]=targetId;
+    const next=Math.max(0,...candidate[ref.child].map(r=>Number(r[ref.pk])))+1;
+    if(!Number.isSafeInteger(next))throw Error('ID de relación no seguro.');copy[ref.pk]=next;
+    const exists=candidate[ref.child].some(r=>Object.keys(r).filter(k=>k!==ref.pk).every(k=>JSON.stringify(r[k])===JSON.stringify(copy[k])));
+    if(!exists)candidate[ref.child].push(copy);
+   }
+  }
+  const candidateIssues=v17eAnalyze(candidate).issues;
+  add('h4','17L.7 · Resultado de reconstrucción histórica');
+  add('p',`Fuentes verificadas: Chrome y Edge 17J. Conflictos: ${conflicts.length}. Decisiones aplicadas: ${required.size}. Vínculos reasignados: ${refs.length}.`);
+  add('p','SHA-256 candidato reconstruido: '+await v17jDigest(candidate));
+  add('p','SHA-256 LOCAL actual: '+localHash);
+  const table=document.createElement('table');table.className='r-table';
+  const trh=document.createElement('tr');for(const h of ['Tabla','Esperados','LOCAL','Iguales','Distintos','Faltan LOCAL','Sobran LOCAL']){const th=document.createElement('th');th.textContent=h;trh.append(th)}table.append(trh);
+  let differences=0;const examples=[];
+  for(const [name,pk] of Object.entries(V26_TABLES)){
+   const a=new Map((candidate[name]||[]).map(r=>[String(r[pk]),r])),b=new Map((db[name]||[]).map(r=>[String(r[pk]),r]));
+   let same=0,diff=0,missing=0,extraRows=0;
+   for(const [id,row] of a){if(!b.has(id)){missing++;examples.push(`${name} ID ${id}: falta en LOCAL`)}else if(v26Same(row,b.get(id)))same++;else{diff++;const changed=[...new Set([...Object.keys(row),...Object.keys(b.get(id))])].filter(k=>!v26Same(row[k],b.get(id)[k]));examples.push(`${name} ID ${id}: campos distintos: ${changed.join(', ')}`)}}
+   for(const id of b.keys())if(!a.has(id)){extraRows++;examples.push(`${name} ID ${id}: adicional en LOCAL`)}
+   differences+=diff+missing+extraRows;
+   const tr=document.createElement('tr');for(const value of [name,a.size,b.size,same,diff,missing,extraRows]){const td=document.createElement('td');td.textContent=String(value);tr.append(td)}table.append(tr);
+  }
+  out.append(table);
+  if(candidateIssues.length){add('p',`Problemas de integridad del candidato: ${candidateIssues.length}`);for(const x of candidateIssues.slice(0,12))add('p',x)}
+  if(examples.length){add('h4','Diferencias para revisar');for(const x of examples.slice(0,35))add('p',x);if(examples.length>35)add('p',`Otras ${examples.length-35} diferencias no mostradas.`)}
+  if(!differences&&!candidateIssues.length){add('p','RESULTADO: COINCIDENCIA DE LOS 12 CONJUNTOS DE REGISTROS POR ID Y CONTENIDO. La reconstrucción histórica coincide con LOCAL. No autoriza todavía el envío a OneDrive: falta comprobar el estado remoto actual y establecer una referencia de subida protegida.');}
+  else add('p',`RESULTADO: SIN CERTIFICACIÓN. ${differences} diferencias de registros; ${candidateIssues.length} problemas de integridad. No se ha modificado ni enviado ningún dato.`);
+ }catch(e){add('p','Comprobación detenida: '+(e?.message||String(e))+'. No se ha modificado ni enviado ningún dato.');}
+ finally{document.getElementById('v17l6-pass').value='';btn.disabled=false}
+}
 </script>
