@@ -1577,7 +1577,7 @@ function v17l4RenderProof(){
 
  const auditButton=document.createElement('button');auditButton.className='btn';auditButton.textContent='17L.6 · Auditar si la fusión local ya incluye OneDrive (solo lectura)';auditButton.addEventListener('click',v17l5Audit);box.append(auditButton);
  const auditOutput=document.createElement('div');auditOutput.id='v17l5-audit';auditOutput.setAttribute('aria-live','polite');box.append(auditOutput);
- const history=document.createElement('div');history.id='v17l6-history';history.className='panel';history.style.cssText='margin-top:14px;border:1px solid #8ea6ba';history.innerHTML=`<h3>17L.6 · Verificar evidencias de 17J y 17K (solo lectura)</h3><p>Selecciona el archivo de decisiones 17J y la copia cifrada ANTES de 17K. Opcionalmente, selecciona también la segunda copia original. Ningún archivo ni contraseña se envía a servidores. No se restaurará ningún dato.</p><label>Decisiones 17J <input type="file" id="v17l6-decisions" accept=".json,application/json"></label><label>Copia cifrada antes de 17K <input type="file" id="v17l6-before" accept=".json,application/json"></label><label>Segunda copia original (opcional) <input type="file" id="v17l6-second" accept=".json,application/json"></label><label>Contraseña de las copias (solo en este dispositivo) <input type="password" id="v17l6-pass" autocomplete="off"></label><button class="btn" type="button" id="v17l6-check">Comprobar huellas sin modificar datos</button><div id="v17l6-results" aria-live="polite"></div>`;box.append(history);history.querySelector('#v17l6-check').addEventListener('click',v17l6Verify);const b=document.createElement('button');b.className='btn';b.type='button';b.id='v17l7-check';b.textContent='17L.7 · Reconstruir y comparar fusión (solo lectura)';history.append(b);const result=document.createElement('div');result.id='v17l7-results';result.setAttribute('aria-live','polite');history.append(result);b.addEventListener('click',v17l7Verify);const b8=document.createElement('button');b8.type='button';b8.className='btn';b8.textContent='17L.8 · Auditar cambios remotos antes del envío (solo lectura)';history.append(b8);const o8=document.createElement('div');o8.id='v17l8-results';o8.setAttribute('aria-live','polite');history.append(o8);b8.addEventListener('click',()=>v17l8Audit(b8));
+ const history=document.createElement('div');history.id='v17l6-history';history.className='panel';history.style.cssText='margin-top:14px;border:1px solid #8ea6ba';history.innerHTML=`<h3>17L.6 · Verificar evidencias de 17J y 17K (solo lectura)</h3><p>Selecciona el archivo de decisiones 17J y la copia cifrada ANTES de 17K. Opcionalmente, selecciona también la segunda copia original. Ningún archivo ni contraseña se envía a servidores. No se restaurará ningún dato.</p><label>Decisiones 17J <input type="file" id="v17l6-decisions" accept=".json,application/json"></label><label>Copia cifrada antes de 17K <input type="file" id="v17l6-before" accept=".json,application/json"></label><label>Segunda copia original (opcional) <input type="file" id="v17l6-second" accept=".json,application/json"></label><label>Contraseña de las copias (solo en este dispositivo) <input type="password" id="v17l6-pass" autocomplete="off"></label><button class="btn" type="button" id="v17l6-check">Comprobar huellas sin modificar datos</button><div id="v17l6-results" aria-live="polite"></div>`;box.append(history);history.querySelector('#v17l6-check').addEventListener('click',v17l6Verify);const b=document.createElement('button');b.className='btn';b.type='button';b.id='v17l7-check';b.textContent='17L.7 · Reconstruir y comparar fusión (solo lectura)';history.append(b);const result=document.createElement('div');result.id='v17l7-results';result.setAttribute('aria-live','polite');history.append(result);b.addEventListener('click',v17l7Verify);const b8=document.createElement('button');b8.type='button';b8.className='btn';b8.textContent='17L.8 · Auditar cambios remotos antes del envío (solo lectura)';history.append(b8);const o8=document.createElement('div');o8.id='v17l8-results';o8.setAttribute('aria-live','polite');history.append(o8);b8.addEventListener('click',()=>v17l8Audit(b8));const b9=document.createElement('button');b9.type='button';b9.className='btn';b9.id='v17l9-check';b9.textContent='17L.9 · Comparar Proyecto 3 en cuatro fuentes (solo lectura)';history.append(b9);const o9=document.createElement('div');o9.id='v17l9-results';o9.setAttribute('aria-live','polite');history.append(o9);b9.addEventListener('click',()=>v17l9Compare(b9));
  out.prepend(box);
 }
 
@@ -1816,5 +1816,48 @@ async function v17l7Verify(){
   else add('p',`RESULTADO: SIN CERTIFICACIÓN. ${differences} diferencias de registros; ${candidateIssues.length} problemas de integridad. No se ha modificado ni enviado ningún dato.`);
  }catch(e){add('p','Comprobación detenida: '+(e?.message||String(e))+'. No se ha modificado ni enviado ningún dato.');}
  finally{document.getElementById('v17l6-pass').value='';btn.disabled=false}
+}
+</script>
+
+<script>
+// 17L.9 read-only: display every field of Project ID 3 across verified sources.
+async function v17l9Compare(button){
+ const out=document.getElementById('v17l9-results');if(!out)return;out.replaceChildren();button.disabled=true;
+ const add=(tag,txt,parent=out)=>{const el=document.createElement(tag);el.textContent=String(txt);parent.append(el);return el};
+ try{
+  await saveQueue;const proof=v17l2ReviewProof;
+  if(!proof||proof.review!==v17hReview)throw Error('Primero repite los pasos 1 y 4 para verificar OneDrive.');
+  if(await v17jDigest(db)!==proof.localDigest)throw Error('LOCAL cambió; repite el paso 4.');
+  if(await v17jDigest(proof.review.remote)!==proof.remoteDigest)throw Error('La copia remota revisada cambió; repite el paso 4.');
+  const meta=await v24Meta();if(!meta||meta.eTag!==proof.etag)throw Error('OneDrive cambió desde la revisión.');
+  const raw=await v17lRemoteContent(meta);if(await v24Hash(raw)!==proof.hash)throw Error('OneDrive cambió desde la revisión.');
+  const after=await v24Meta();if(after?.eTag!==meta.eTag)throw Error('OneDrive cambió durante la comprobación.');
+  const inputs=['v17l6-decisions','v17l6-before','v17l6-second'].map(id=>document.getElementById(id)?.files?.[0]);
+  if(inputs.some(x=>!x))throw Error('Selecciona los tres archivos históricos.');
+  if(inputs.some(x=>x.size>20000000))throw Error('Archivo demasiado grande.');
+  const pass=document.getElementById('v17l6-pass')?.value;if(!pass)throw Error('Introduce la contraseña en la aplicación.');
+  const dec=JSON.parse(await inputs[0].text());
+  if(dec.format!=='tareas-v29b-17j-review-only'||dec.version!==1||!dec.sourceHashes||!dec.choices)throw Error('Decisiones históricas no válidas.');
+  const read=async f=>{const e=validateV23(JSON.parse(await f.text()));return v23Open(e,await v23Derive(pass,v23Unb64(e.salt)))};
+  const originals=[await read(inputs[1]),await read(inputs[2])];const hashes=await Promise.all(originals.map(v17jDigest));
+  if(new Set(hashes).size!==2||!hashes.includes(dec.sourceHashes.chrome)||!hashes.includes(dec.sourceHashes.edge))throw Error('Las fuentes originales no coinciden con 17J.');
+  const chrome=originals[hashes.indexOf(dec.sourceHashes.chrome)],edge=originals[hashes.indexOf(dec.sourceHashes.edge)];
+  const get=x=>(x.Proyectos||[]).find(r=>String(r.Proyecto_ID)==='3')||null;
+  const sources=[['Chrome original 17J',get(chrome)],['Edge original 17J',get(edge)],['LOCAL verificado',get(db)],['REMOTO actual (OneDrive)',get(proof.review.remote)]];
+  add('h3','17L.9 · Comparación de Proyecto ID 3 (solo lectura)');
+  add('p','Fuentes históricas y copia remota verificadas por huella; versión remota comprobada por ETag. No se modifica ningún dato.');
+  const fields=[...new Set(sources.flatMap(([,r])=>r?Object.keys(r):[]))];
+  const table=document.createElement('table');table.className='r-table';table.style.cssText='width:100%;table-layout:fixed';
+  const tr=document.createElement('tr');for(const label of ['Campo',...sources.map(x=>x[0])])add('th',label,tr);table.append(tr);
+  let diff=0;for(const field of fields){const vals=sources.map(([,r])=>r?r[field]:undefined);const row=document.createElement('tr');if(!vals.every(x=>v26Same(x,vals[0]))) {row.style.background='#fff3e1';diff++;}
+   add('th',field,row);for(const value of vals){const cell=add('td',v17gPretty(value),row);cell.style.cssText='overflow-wrap:anywhere;white-space:pre-wrap;vertical-align:top'}table.append(row);}
+  const wrap=document.createElement('div');wrap.style.cssText='overflow-x:auto';wrap.append(table);out.append(wrap);
+  add('p',`Campos con diferencias entre las cuatro fuentes: ${diff}.`);
+  const title=r=>r?(r.Proyecto??r.Nombre_Proyecto??r.Nombre??'(sin título reconocido)'):'(no existe)';
+  add('p','Proyecto 3 — Chrome: '+title(sources[0][1])+' | Edge: '+title(sources[1][1])+' | LOCAL: '+title(sources[2][1])+' | REMOTO: '+title(sources[3][1]));
+  add('p','REVISIÓN MANUAL: compara especialmente el contenido REMOTO con los dos proyectos preservados en LOCAL. Esta comparación no certifica aún que se pueda reemplazar OneDrive.');
+  add('p','RESULTADO: SOLO LECTURA. No se ha modificado LOCAL, OneDrive ni la referencia de subida.');
+ }catch(e){add('p','Comparación detenida: '+(e?.message||String(e))+'. Ningún dato modificado.')}
+ finally{const pwd=document.getElementById('v17l6-pass');if(pwd)pwd.value='';button.disabled=false}
 }
 </script>
