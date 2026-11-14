@@ -1270,6 +1270,85 @@ async function v17l33Receive(){
  }finally{v17l33Busy=false;if(button)button.disabled=false;}
 }
 
+// 17L.34: narrowly scoped, read-only merge simulation for two independently created tasks.
+// This does not write to storage, export, or contact OneDrive.
+async function v17l34Preview(input){
+ const out=document.getElementById('v17l34-out');if(!out)return;
+ out.textContent='17L.34 · Comprobando las dos copias cifradas…';
+ try{
+  await saveQueue;
+  const f=input.files?.[0];if(!f)return;
+  if(f.size>20000000)throw Error('El archivo es demasiado grande.');
+  if(!v23Key)throw Error('Desbloquea primero Chrome.');
+  const localRaw=localStorage.getItem(KEY);
+  if(!localRaw)throw Error('No existe la copia cifrada de Chrome.');
+  const chrome=await v23Open(validateV23(JSON.parse(localRaw)),v23Key);
+  const pass=prompt('Contraseña de la copia cifrada de Edge:');
+  if(pass===null){out.textContent='CANCELADO. Sin cambios.';return;}
+  const env=validateV23(JSON.parse(await f.text()));
+  const edge=await v23Open(env,await v23Derive(pass,v23Unb64(env.salt)));
+  for(const [name,base] of [['Chrome',chrome],['Edge',edge]]){
+   const issues=v17eAnalyze(base).issues;
+   if(issues.length)throw Error(name+' no supera integridad: '+issues.slice(0,3).join('; '));
+  }
+  const ct=chrome.Tareas.find(x=>String(x.Tarea_ID)==='7');
+  const et=edge.Tareas.find(x=>String(x.Tarea_ID)==='7');
+  if(ct?.Tarea!=='Prueba simultánea Chrome 17L34'||et?.Tarea!=='Prueba simultánea Edge 17L34')throw Error('Las tareas de prueba ID 7 no corresponden a las esperadas. No se genera propuesta.');
+  const cLinks=chrome.Proyectos_Tareas_join.filter(x=>String(x.Tarea_ID)==='7');
+  const eLinks=edge.Proyectos_Tareas_join.filter(x=>String(x.Tarea_ID)==='7');
+  if(cLinks.length!==1||eLinks.length!==1)throw Error('Se esperaba exactamente un vínculo para cada tarea ID 7.');
+  const cLink=cLinks[0],eLink=eLinks[0];
+  const taskPK=V26_TABLES.Tareas,linkPK=V26_TABLES.Proyectos_Tareas_join;
+  const cTaskIds=new Set(chrome.Tareas.map(x=>String(x[taskPK])));
+  const eTaskIds=new Set(edge.Tareas.map(x=>String(x[taskPK])));
+  const cLinkIds=new Set(chrome.Proyectos_Tareas_join.map(x=>String(x[linkPK])));
+  const eLinkIds=new Set(edge.Proyectos_Tareas_join.map(x=>String(x[linkPK])));
+  // Restrict this test to exactly two local records per browser, relative to the shared 53-record baseline.
+  const differences=[];
+  for(const [table,pk] of Object.entries(V26_TABLES)){
+   const cm=new Map(chrome[table].map(x=>[String(x[pk]),x]));
+   const em=new Map(edge[table].map(x=>[String(x[pk]),x]));
+   for(const [id,x] of cm){
+    const y=em.get(id);
+    if(!y){differences.push(table+' ID '+id+' solo Chrome');continue;}
+    if(!v26Same(v17l29Comparable(table,x),v17l29Comparable(table,y)))differences.push(table+' ID '+id+' distinto');
+   }
+   for(const id of em.keys())if(!cm.has(id))differences.push(table+' ID '+id+' solo Edge');
+  }
+  if(differences.length!==2||!differences.includes('Tareas ID 7 distinto')||!differences.includes('Proyectos_Tareas_join ID '+String(cLink[linkPK])+' distinto')||String(cLink[linkPK])!==String(eLink[linkPK])){
+   throw Error('Se detectaron diferencias fuera de las dos colisiones previstas: '+differences.join('; '));
+  }
+  const nextTask=Math.max(0,...chrome.Tareas.map(x=>Number(x[taskPK])),...edge.Tareas.map(x=>Number(x[taskPK])))+1;
+  const nextLink=Math.max(0,...chrome.Proyectos_Tareas_join.map(x=>Number(x[linkPK])),...edge.Proyectos_Tareas_join.map(x=>Number(x[linkPK])))+1;
+  if(!Number.isSafeInteger(nextTask)||!Number.isSafeInteger(nextLink)||cTaskIds.has(String(nextTask))||eTaskIds.has(String(nextTask))||cLinkIds.has(String(nextLink))||eLinkIds.has(String(nextLink)))throw Error('No se puede asignar un ID seguro.');
+  const candidate=structuredClone(chrome);
+  const edgeTask=structuredClone(et);edgeTask[taskPK]=nextTask;
+  const edgeLink=structuredClone(eLink);edgeLink[linkPK]=nextLink;edgeLink.Tarea_ID=nextTask;
+  candidate.Tareas.push(edgeTask);candidate.Proyectos_Tareas_join.push(edgeLink);
+  const issues=v17eAnalyze(candidate).issues;
+  if(issues.length)throw Error('La candidata tiene relaciones o IDs inválidos: '+issues.slice(0,4).join('; '));
+  // Verify all original Chrome records unchanged, plus exact preservation of Edge's new task/link except for IDs.
+  for(const [table,pk] of Object.entries(V26_TABLES)){
+   if(JSON.stringify(candidate[table].slice(0,chrome[table].length))!==JSON.stringify(chrome[table]))throw Error('Una fila original de Chrome cambió.');
+  }
+  if(JSON.stringify({...edgeTask,[taskPK]:et[taskPK]})!==JSON.stringify(et)||JSON.stringify({...edgeLink,[linkPK]:eLink[linkPK],Tarea_ID:eLink.Tarea_ID})!==JSON.stringify(eLink))throw Error('Los datos de Edge no se conservaron exactamente.');
+  if(localStorage.getItem(KEY)!==localRaw)throw Error('Chrome cambió durante la simulación.');
+  const digest=await v17jDigest(candidate);
+  out.textContent=[
+   'SIMULACIÓN 17L.34 · SIN CAMBIOS',
+   'Chrome: '+chrome.Tareas.length+' tareas; Edge: '+edge.Tareas.length+' tareas.',
+   'Conservar tarea Chrome ID 7: '+ct.Tarea,
+   'Conservar vínculo Chrome ID '+cLink[linkPK]+' → Tarea_ID 7; Proyecto_ID '+cLink.Proyecto_ID,
+   'Incorporar tarea Edge ID 7 → ID '+nextTask+': '+et.Tarea,
+   'Incorporar vínculo Edge ID '+eLink[linkPK]+' → ID '+nextLink+'; Tarea_ID 7 → '+nextTask+'; Proyecto_ID '+eLink.Proyecto_ID,
+   'Candidata: '+candidate.Tareas.length+' tareas; '+candidate.Proyectos_Tareas_join.length+' vínculos.',
+   'Integridad: '+(issues.length===0?'sin incidencias en las comprobaciones disponibles':'REVISAR'),
+   'Huella de candidata (solo memoria): '+digest,
+   'NO se ha guardado, descargado, fusionado ni enviado ningún dato.',
+   'Esta simulación NO autoriza todavía instalar o enviar la fusión.'
+  ].join('\n');
+ }catch(e){out.textContent='BLOQUEADO: '+(e?.message||String(e))+'\nChrome, Edge y OneDrive no se han modificado.';}
+}
 // 17L.30: preview only. Does not write to local storage or OneDrive.
 async function v17l30Preview(){
  const out=document.getElementById('v17l26-out');if(!out)return;
@@ -4156,7 +4235,7 @@ function v17l29Comparable(table, record){
 }
 // 17L.26 phase 1: read-only preflight. NO OneDrive writes, NO local replacement.
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.33</h2><p>Comparación, envío protegido de registros exclusivos locales y recepción protegida de registros exclusivos de OneDrive. Si OneDrive tiene cambios exclusivos o hay conflictos, el envío se bloquea. No es todavía una fusión bidireccional general.</p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" onclick="v17l30Preview()">Vista previa de incorporación (solo lectura)</button> <button class="btn primary" id="v17l31-upload" onclick="v17l31Upload()">Incorporar cambios locales a OneDrive (protegido · diagnóstico 17L.32)</button> <button class="btn primary" id="v17l33-receive" onclick="v17l33Receive()">Recibir cambios de OneDrive (protegido · 17L.33)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><p class="muted small">La vista previa es solo lectura. El envío requiere respaldo y confirmación explícita; nunca reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.34</h2><p>Comparación, envío protegido de registros exclusivos locales y recepción protegida de registros exclusivos de OneDrive. Si OneDrive tiene cambios exclusivos o hay conflictos, el envío se bloquea. No es todavía una fusión bidireccional general.</p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" onclick="v17l30Preview()">Vista previa de incorporación (solo lectura)</button> <button class="btn primary" id="v17l31-upload" onclick="v17l31Upload()">Incorporar cambios locales a OneDrive (protegido · diagnóstico 17L.32)</button> <button class="btn primary" id="v17l33-receive" onclick="v17l33Receive()">Recibir cambios de OneDrive (protegido · 17L.33)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><div class="panel" style="border:2px solid #176e9e;margin-top:18px"><h3>17L.34 · Simular conservación de ambas tareas (solo lectura)</h3><p>En Chrome, selecciona la copia CIFRADA de Edge. Reasigna en memoria los IDs de la tarea y su vínculo; comprueba las 12 tablas. No guarda ni envía datos.</p><label class="btn">Seleccionar copia CIFRADA de Edge <input type="file" accept=".json,application/json" style="display:none" onchange="v17l34Preview(this)"></label><div id="v17l34-out" style="white-space:pre-wrap;margin-top:12px" aria-live="polite">Esperando archivo.</div></div><p class="muted small">La vista previa es solo lectura. El envío requiere respaldo y confirmación explícita; nunca reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
 }
 async function v17l26Check(){
  const button=document.getElementById('v17l26-check'),out=document.getElementById('v17l26-out');if(!button||button.disabled)return;
