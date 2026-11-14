@@ -1675,6 +1675,90 @@ async function v17l39Action(){
  if(kind==='send')await v17l31Upload();
  else if(kind==='receive')await v17l33Receive();
 }
+
+// 17L.41: manual, explicitly approved one-field resolution, local -> OneDrive.
+// Never infer edit vs ID collision; refuse multiple differences or unilateral records.
+let v17l41Busy=false;
+async function v17l41Resolve(){
+ const out=document.getElementById('v17l41-out'),btn=document.getElementById('v17l41-resolve');
+ if(!out||!btn||v17l41Busy)return;
+ v17l41Busy=true;btn.disabled=true;out.textContent='17L.41 · Comprobación de resolución manual protegida…';
+ const say=s=>{out.textContent+='\n'+s;};
+ try{
+  await saveQueue;
+  if(!v23Key)throw Error('Desbloquea la base local primero.');
+  const localRaw=localStorage.getItem(KEY);if(!localRaw)throw Error('Falta la copia local cifrada.');
+  const local=await v23Open(validateV23(JSON.parse(localRaw)),v23Key);
+  if(v17eAnalyze(local).issues.length)throw Error('La integridad local no está verificada.');
+  if(v2410OpenMatches(local).length)throw Error('La base abierta no coincide con la copia cifrada.');
+  const meta=await v24Meta();if(!meta?.eTag)throw Error('Falta la copia OneDrive.');
+  const remoteRaw=await v17lRemoteContent(meta),remoteHash=await v24Hash(remoteRaw);
+  const pass=prompt('17L.41: Contraseña de OneDrive para revisar y resolver manualmente un cambio:');
+  if(pass===null){say('CANCELADO.');return;}
+  const env=validateV23(JSON.parse(remoteRaw));
+  const remoteSalt=v23Unb64(env.salt),remoteKey=await v23Derive(pass,remoteSalt);
+  const remote=await v23Open(env,remoteKey);
+  if(v17eAnalyze(remote).issues.length)throw Error('La integridad de OneDrive no está verificada.');
+  const differences=[];let exclusive=0;
+  for(const [table,pk] of Object.entries(V26_TABLES)){
+   const lm=new Map(local[table].map(r=>[String(r[pk]),r]));
+   const rm=new Map(remote[table].map(r=>[String(r[pk]),r]));
+   for(const [id,lrec] of lm){
+    const rrec=rm.get(id);
+    if(!rrec){exclusive++;continue;}
+    const a=v17l29Comparable(table,lrec),b=v17l29Comparable(table,rrec);
+    for(const field of new Set([...Object.keys(a),...Object.keys(b)])){
+     if(JSON.stringify(a[field]??null)!==JSON.stringify(b[field]??null))differences.push({table,pk,id,field,localValue:lrec[field],remoteValue:rrec[field]});
+    }
+   }
+   for(const id of rm.keys())if(!lm.has(id))exclusive++;
+  }
+  if(exclusive||differences.length!==1)throw Error('Se requiere exactamente una diferencia de campo y ningún registro exclusivo. Encontrados: '+differences.length+' campos y '+exclusive+' registros exclusivos.');
+  const d=differences[0];
+  // Narrow scope: a task title, explicitly chosen by the user. No other fields or tables.
+  if(d.table!=='Tareas'||d.field!=='Tarea'||typeof d.localValue!=='string'||typeof d.remoteValue!=='string')throw Error('17L.41 solo permite resolver manualmente el título de una tarea.');
+  const candidate=structuredClone(remote);
+  const target=candidate.Tareas.find(r=>String(r[d.pk])===d.id);
+  if(!target)throw Error('La tarea no existe en la copia candidata.');
+  target.Tarea=d.localValue;
+  if(v17eAnalyze(candidate).issues.length)throw Error('La candidata no supera las comprobaciones de integridad.');
+  const digest=await v17jDigest(candidate);
+  say('ÚNICA DIFERENCIA: Tareas ID '+d.id+' · campo Tarea');
+  say('Este navegador: '+JSON.stringify(d.localValue));
+  say('OneDrive: '+JSON.stringify(d.remoteValue));
+  say('ACCIÓN PROPUESTA: sustituir SOLO el título de esta tarea en OneDrive por el título de ESTE navegador.');
+  say('Esta decisión es MANUAL; no se puede demostrar automáticamente que no haya colisión de ID.');
+  if(!confirm('17L.41 · RESOLUCIÓN MANUAL\n\nTareas ID '+d.id+'\n\nEste navegador: '+d.localValue+'\n\nOneDrive: '+d.remoteValue+'\n\n¿Confirmas que son la MISMA tarea y deseas conservar el título de ESTE navegador?\n\nSi no estás segura, pulsa Cancelar.')){say('CANCELADO. Sin cambios.');return;}
+  const typed=prompt('Confirmación adicional: escribe exactamente ACTUALIZAR '+d.id+' para elegir el título de este navegador:');
+  if(typed!=='ACTUALIZAR '+d.id){say('CANCELADO. No se autorizó la actualización.');return;}
+  if(localStorage.getItem(KEY)!==localRaw)throw Error('La base local cambió antes del respaldo.');
+  const pre=await v24Meta();if(pre?.eTag!==meta.eTag||await v24Hash(await v17lRemoteContent(pre))!==remoteHash)throw Error('OneDrive cambió antes del respaldo.');
+  const filename='Respaldo_OneDrive_ANTES_17L41_'+remoteHash.slice(0,12)+'_CIFRADO.json';
+  const blob=new Blob([remoteRaw],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),20000);
+  say('DESCARGA INICIADA: '+filename);
+  if(!confirm('17L.41: Comprueba en Descargas que '+filename+' existe y no está vacío.\n\n¿Autorizas ACTUALIZAR SOLO el título de Tareas ID '+d.id+' en OneDrive?')){say('CANCELADO. OneDrive intacto.');return;}
+  if(localStorage.getItem(KEY)!==localRaw)throw Error('La base local cambió antes de la escritura.');
+  const finalMeta=await v24Meta();if(finalMeta?.eTag!==meta.eTag||await v24Hash(await v17lRemoteContent(finalMeta))!==remoteHash)throw Error('OneDrive cambió antes de la escritura.');
+  const sealed=JSON.stringify(await v23Seal(candidate,remoteKey,remoteSalt));
+  const selfCheck=await v23Open(validateV23(JSON.parse(sealed)),remoteKey);
+  if(await v17jDigest(selfCheck)!==digest)throw Error('La copia cifrada candidata no coincide.');
+  say('Enviando actualización condicional a OneDrive…');
+  let response;
+  try{response=await v24Fetch(V24_CONTENT,'PUT',sealed,{'Content-Type':'application/json','If-Match':finalMeta.eTag});}
+  catch(e){throw Error('No se pudo confirmar el envío: '+(e?.message||e)+'. Verifica OneDrive antes de reintentar.');}
+  if(!response.ok)throw Error('OneDrive respondió HTTP '+response.status+'. Verifica el estado antes de reintentar.');
+  const afterMeta=await v24Meta(),afterRaw=await v17lRemoteContent(afterMeta);
+  const afterEnv=validateV23(JSON.parse(afterRaw));
+  const after=await v23Open(afterEnv,await v23Derive(pass,v23Unb64(afterEnv.salt)));
+  if(await v17jDigest(after)!==digest||v17eAnalyze(after).issues.length)throw Error('La verificación posterior no coincide. No reintentes sin revisar.');
+  say('ACTUALIZACIÓN VERIFICADA: solo el título de Tareas ID '+d.id+' se ha elegido desde este navegador.');
+  say('Huella OneDrive: '+digest+' · ETag: '+afterMeta.eTag);
+  say('La base local no se ha reemplazado. Los otros navegadores no se han modificado.');
+ }catch(e){say('BLOQUEADO O NO VERIFICADO: '+(e?.message||String(e))+'\nNo repitas la operación sin comprobar antes el estado de OneDrive.');}
+ finally{v17l41Busy=false;btn.disabled=false;}
+}
+
 // 17L.38: generalized, read-only sync decision preview. Never persists or writes.
 // 17L.40: read-only, field-level review of same-ID differences. No update authorization.
 async function v17l40Review(){
@@ -4590,7 +4674,7 @@ function v17l29Comparable(table, record){
 }
 // 17L.26 phase 1: read-only preflight. NO OneDrive writes, NO local replacement.
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.40</h2><p>Comparación, envío protegido de registros exclusivos locales y recepción protegida de registros exclusivos de OneDrive. Si OneDrive tiene cambios exclusivos o hay conflictos, el envío se bloquea. No es todavía una fusión bidireccional general.</p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><div class="panel" style="border:2px solid #176e9e;margin:16px 0"><h3>17L.40 · Sincronizar ahora — comprobación y acción protegida</h3><p>Primero comprueba las dos copias sin modificarlas. Si hay incorporaciones simples en una sola dirección, muestra un botón para iniciar el procedimiento protegido con respaldo y confirmación. Ante conflictos o cambios en ambos lados, no ofrece acción automática.</p><button class="btn primary" id="v17l38-preview" onclick="v17l38Preview()">Sincronizar ahora · Ver vista previa</button><div id="v17l38-out" style="white-space:pre-wrap;margin-top:12px" aria-live="polite">Sin comprobar.</div><button class="btn primary" id="v17l39-action" hidden disabled style="display:none" onclick="v17l39Action()"></button><div class="panel" style="margin-top:14px"><h3>17L.40 · Revisar cambios de registros existentes (solo lectura)</h3><p>Compara campo por campo los registros con el mismo ID y diferente contenido. No envía, recibe ni resuelve automáticamente ediciones o colisiones.</p><button class="btn" id="v17l40-review" onclick="v17l40Review()">Revisar diferencias de campos</button><div id="v17l40-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:10px" aria-live="polite">Sin comprobar.</div></div><p class="muted small">La acción protegida repite todas las comprobaciones antes de modificar datos. Si hay conflictos, se bloquea. No se fusionan automáticamente cambios simultáneos.</p></div><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" onclick="v17l30Preview()">Vista previa de incorporación (solo lectura)</button> <button class="btn primary" id="v17l31-upload" onclick="v17l36Upload()">17L.36 · Enviar las 4 incorporaciones verificadas a OneDrive (protegido)</button> <button class="btn primary" id="v17l33-receive" onclick="v17l33Receive()">Recibir cambios de OneDrive (protegido · 17L.39a)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><div class="panel" style="border:2px solid #176e9e;margin-top:18px"><h3>17L.37 · Recibir fusión verificada SOLO en Edge</h3><p>Para el caso específico de las dos tareas de prueba 17L34. Comprueba que la tarea Edge ID 7 ya está conservada como ID 8 en OneDrive y que su vínculo está correcto. Descarga respaldo CIFRADO de Edge antes de instalar. No modifica OneDrive ni Chrome.</p><button class="btn primary" id="v17l37-receive" onclick="v17l37Receive()">17L.37 · Recibir fusión verificada en Edge (protegido)</button><div id="v17l37-out" style="white-space:pre-wrap;margin-top:12px" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:18px"><h3>17L.34a · Simular conservación de ambas tareas (solo lectura)</h3><p>En Chrome, selecciona la copia CIFRADA de Edge. Reasigna en memoria los IDs de la tarea y su vínculo; comprueba las 12 tablas. No guarda ni envía datos.</p><label class="btn">Seleccionar copia CIFRADA de Edge <input type="file" accept=".json,application/json" style="display:none" onchange="v17l34Preview(this)"></label><div id="v17l34-out" style="white-space:pre-wrap;margin-top:12px" aria-live="polite">Esperando archivo.</div><div class="panel" style="border:2px solid #176e9e;margin-top:18px"><h3>17L.35 · Instalar fusión protegida SOLO en Chrome</h3><p>Primero ejecuta la simulación 17L.34a. Después selecciona la copia CIFRADA actual de Edge para repetir todas las comprobaciones. Descarga un respaldo cifrado de Chrome y solicita confirmación antes de instalar. NO modifica Edge ni OneDrive.</p><label class="btn">Seleccionar copia CIFRADA de Edge para instalación protegida <input type="file" accept=".json,application/json" style="display:none" onchange="v17l35Install(this)"></label><div id="v17l35-out" style="white-space:pre-wrap;margin-top:12px" aria-live="polite">Esperando archivo.</div></div></div><p class="muted small">La vista previa es solo lectura. El envío requiere respaldo y confirmación explícita; nunca reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.41</h2><p>Comparación, envío protegido de registros exclusivos locales y recepción protegida de registros exclusivos de OneDrive. Si OneDrive tiene cambios exclusivos o hay conflictos, el envío se bloquea. No es todavía una fusión bidireccional general.</p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><div class="panel" style="border:2px solid #176e9e;margin:16px 0"><h3>17L.40 · Sincronizar ahora — comprobación y acción protegida</h3><p>Primero comprueba las dos copias sin modificarlas. Si hay incorporaciones simples en una sola dirección, muestra un botón para iniciar el procedimiento protegido con respaldo y confirmación. Ante conflictos o cambios en ambos lados, no ofrece acción automática.</p><button class="btn primary" id="v17l38-preview" onclick="v17l38Preview()">Sincronizar ahora · Ver vista previa</button><div id="v17l38-out" style="white-space:pre-wrap;margin-top:12px" aria-live="polite">Sin comprobar.</div><button class="btn primary" id="v17l39-action" hidden disabled style="display:none" onclick="v17l39Action()"></button><div class="panel" style="margin-top:14px"><h3>17L.40 · Revisar cambios de registros existentes (solo lectura)</h3><p>Compara campo por campo los registros con el mismo ID y diferente contenido. No envía, recibe ni resuelve automáticamente ediciones o colisiones.</p><button class="btn" id="v17l40-review" onclick="v17l40Review()">Revisar diferencias de campos</button><div id="v17l40-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:10px" aria-live="polite">Sin comprobar.</div></div><div class="panel" style="margin-top:14px;border:2px solid #a36a18"><h3>17L.41 · Resolver manualmente un título de tarea (protegido)</h3><p>Solo permite elegir explícitamente el título de ESTE navegador para una tarea cuando es la única diferencia entre ambas bases. Requiere confirmar que es la misma tarea, escribir una autorización, descargar un respaldo cifrado de OneDrive y verificar la escritura. No resuelve automáticamente colisiones ni otros cambios.</p><button class="btn" id="v17l41-resolve" onclick="v17l41Resolve()">Revisar y resolver un título de tarea</button><div id="v17l41-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:10px" aria-live="polite">Sin comprobar.</div></div><p class="muted small">La acción protegida repite todas las comprobaciones antes de modificar datos. Si hay conflictos, se bloquea. No se fusionan automáticamente cambios simultáneos.</p></div><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" onclick="v17l30Preview()">Vista previa de incorporación (solo lectura)</button> <button class="btn primary" id="v17l31-upload" onclick="v17l36Upload()">17L.36 · Enviar las 4 incorporaciones verificadas a OneDrive (protegido)</button> <button class="btn primary" id="v17l33-receive" onclick="v17l33Receive()">Recibir cambios de OneDrive (protegido · 17L.39a)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><div class="panel" style="border:2px solid #176e9e;margin-top:18px"><h3>17L.37 · Recibir fusión verificada SOLO en Edge</h3><p>Para el caso específico de las dos tareas de prueba 17L34. Comprueba que la tarea Edge ID 7 ya está conservada como ID 8 en OneDrive y que su vínculo está correcto. Descarga respaldo CIFRADO de Edge antes de instalar. No modifica OneDrive ni Chrome.</p><button class="btn primary" id="v17l37-receive" onclick="v17l37Receive()">17L.37 · Recibir fusión verificada en Edge (protegido)</button><div id="v17l37-out" style="white-space:pre-wrap;margin-top:12px" aria-live="polite"></div></div><div class="panel" style="border:2px solid #176e9e;margin-top:18px"><h3>17L.34a · Simular conservación de ambas tareas (solo lectura)</h3><p>En Chrome, selecciona la copia CIFRADA de Edge. Reasigna en memoria los IDs de la tarea y su vínculo; comprueba las 12 tablas. No guarda ni envía datos.</p><label class="btn">Seleccionar copia CIFRADA de Edge <input type="file" accept=".json,application/json" style="display:none" onchange="v17l34Preview(this)"></label><div id="v17l34-out" style="white-space:pre-wrap;margin-top:12px" aria-live="polite">Esperando archivo.</div><div class="panel" style="border:2px solid #176e9e;margin-top:18px"><h3>17L.35 · Instalar fusión protegida SOLO en Chrome</h3><p>Primero ejecuta la simulación 17L.34a. Después selecciona la copia CIFRADA actual de Edge para repetir todas las comprobaciones. Descarga un respaldo cifrado de Chrome y solicita confirmación antes de instalar. NO modifica Edge ni OneDrive.</p><label class="btn">Seleccionar copia CIFRADA de Edge para instalación protegida <input type="file" accept=".json,application/json" style="display:none" onchange="v17l35Install(this)"></label><div id="v17l35-out" style="white-space:pre-wrap;margin-top:12px" aria-live="polite">Esperando archivo.</div></div></div><p class="muted small">La vista previa es solo lectura. El envío requiere respaldo y confirmación explícita; nunca reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
 }
 async function v17l26Check(){
  const button=document.getElementById('v17l26-check'),out=document.getElementById('v17l26-out');if(!button||button.disabled)return;
