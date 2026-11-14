@@ -1189,6 +1189,87 @@ async function v17l31Upload(){
  }catch(e){say('BLOQUEADO O NO VERIFICADO: '+(e?.message||String(e))+'\nNo vuelvas a pulsar Enviar hasta revisar el resultado.');}
  finally{v17l31Busy=false;if(button)button.disabled=false;}
 }
+
+// 17L.33: protected reception of remote-only records; never writes to OneDrive.
+let v17l33Busy=false;
+async function v17l33Receive(){
+ const out=document.getElementById('v17l26-out'),button=document.getElementById('v17l33-receive');
+ if(v17l33Busy||!out)return;
+ v17l33Busy=true;if(button)button.disabled=true;
+ const say=s=>{out.textContent+=(out.textContent?'\n':'')+s};
+ out.textContent='17L.33 · Comprobación protegida de recepción…';
+ let changed=false,oldRaw=null,oldBase=null;
+ try{
+  await saveQueue;
+  if(!v23Key||!v23Salt)throw Error('Desbloquea la base local primero.');
+  oldRaw=localStorage.getItem(KEY);if(!oldRaw)throw Error('No existe copia local cifrada.');
+  const local=await v23Open(validateV23(JSON.parse(oldRaw)),v23Key);
+  if(v17eAnalyze(local).issues.length)throw Error('La base local no supera la verificación de integridad.');
+  const openDifferences=v2410OpenMatches(local);
+  if(openDifferences.length)throw Error('La base abierta y la cifrada difieren: '+openDifferences.slice(0,3).join('; '));
+  const meta=await v24Meta();if(!meta?.eTag)throw Error('No se encontró la copia remota.');
+  const remoteRaw=await v17lRemoteContent(meta),remoteFileHash=await v24Hash(remoteRaw);
+  const pass=prompt('Contraseña para verificar los cambios de OneDrive:');
+  if(pass===null){say('CANCELADO. Sin cambios.');return;}
+  const env=validateV23(JSON.parse(remoteRaw));
+  const remote=await v23Open(env,await v23Derive(pass,v23Unb64(env.salt)));
+  if(v17eAnalyze(remote).issues.length)throw Error('La base de OneDrive no supera la verificación de integridad.');
+  const remoteOnly=[],localOnly=[],conflicts=[];
+  for(const [table,pk] of Object.entries(V26_TABLES)){
+   const lm=new Map(local[table].map(r=>[String(r[pk]),r]));
+   const rm=new Map(remote[table].map(r=>[String(r[pk]),r]));
+   for(const [id,r] of rm){
+    if(!lm.has(id))remoteOnly.push({table,id,record:r});
+    else if(!v26Same(v17l29Comparable(table,r),v17l29Comparable(table,lm.get(id))))conflicts.push(table+' ID '+id);
+   }
+   for(const id of lm.keys())if(!rm.has(id))localOnly.push(table+' ID '+id);
+  }
+  if(localOnly.length||conflicts.length)throw Error('Recepción bloqueada: '+localOnly.length+' registros exclusivos locales y '+conflicts.length+' conflictos. Requiere revisión; no se reemplaza nada.');
+  if(!remoteOnly.length){say('SIN CAMBIOS: las bases coinciden por registro. No se ha reemplazado nada.');return;}
+  const candidate=structuredClone(local);
+  for(const x of remoteOnly)candidate[x.table].push(structuredClone(x.record));
+  if(v17eAnalyze(candidate).issues.length)throw Error('La base candidata no supera las comprobaciones de integridad.');
+  const expected=await v17jDigest(candidate);
+  say('APROBADA: '+remoteOnly.length+' registros exclusivos de OneDrive; sin conflictos ni cambios exclusivos locales.');
+  for(const x of remoteOnly)say('A recibir: '+x.table+' ID '+x.id);
+  say('Huella candidata: '+expected);say('ETag OneDrive: '+meta.eTag);
+  if(localStorage.getItem(KEY)!==oldRaw)throw Error('La base local cambió durante la comprobación.');
+  const pre=await v24Meta();if(pre?.eTag!==meta.eTag||await v24Hash(await v17lRemoteContent(pre))!==remoteFileHash)throw Error('OneDrive cambió durante la comprobación.');
+  const backupKey='gobierno_v29b_17l33_backup';
+  const existing=localStorage.getItem(backupKey);
+  if(existing!==null&&existing!==oldRaw)throw Error('Existe un respaldo 17L.33 de otra base local. No se sobrescribe.');
+  const filename='Respaldo_LOCAL_ANTES_17L33_CIFRADO.json';
+  if(existing===null){
+   if(!confirm('17L.33: ¿Preparar la recepción de '+remoteOnly.length+' registros desde OneDrive? Primero se descargará un respaldo CIFRADO de la base local.')){say('CANCELADO. Sin cambios.');return;}
+   if(localStorage.getItem(KEY)!==oldRaw||(await v24Meta())?.eTag!==meta.eTag)throw Error('Los datos cambiaron antes del respaldo.');
+   localStorage.setItem(backupKey,oldRaw);
+   if(localStorage.getItem(backupKey)!==oldRaw)throw Error('No se pudo conservar el respaldo local.');
+   const blob=new Blob([oldRaw],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+   a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),20000);
+   say('DESCARGA INICIADA: '+filename+'. Comprueba el archivo antes de confirmar.');
+  }else{validateV23(JSON.parse(existing));say('RESPALDO EXISTENTE VERIFICADO: coincide exactamente con la base local actual; no se sobrescribe.');}
+  if(!confirm('17L.33: Confirma que '+filename+' está guardado en Descargas.\n\n¿Autorizar la incorporación de '+remoteOnly.length+' registros a ESTE navegador? OneDrive NO se modificará.')){say('CANCELADO: base local intacta; respaldo conservado.');return;}
+  if(localStorage.getItem(KEY)!==oldRaw)throw Error('La base local cambió antes de recibir.');
+  const finalMeta=await v24Meta();
+  if(finalMeta?.eTag!==meta.eTag||await v24Hash(await v17lRemoteContent(finalMeta))!==remoteFileHash)throw Error('OneDrive cambió antes de recibir.');
+  const sealed=JSON.stringify(await v23Seal(candidate,v23Key,v23Salt));
+  const opened=await v23Open(validateV23(JSON.parse(sealed)),v23Key);
+  if(await v17jDigest(opened)!==expected||v17eAnalyze(opened).issues.length)throw Error('La candidata cifrada no supera la verificación.');
+  if(localStorage.getItem(KEY)!==oldRaw)throw Error('La base local cambió antes de instalar.');
+  oldBase=localStorage.getItem(V24_BASE);
+  localStorage.setItem(KEY,sealed);changed=true;
+  if(localStorage.getItem(KEY)!==sealed)throw Error('No se pudo guardar la base recibida.');
+  const installed=await v23Open(validateV23(JSON.parse(localStorage.getItem(KEY))),v23Key);
+  if(await v17jDigest(installed)!==expected||v17eAnalyze(installed).issues.length)throw Error('La copia recibida no supera verificación posterior.');
+  localStorage.setItem(V24_BASE,remoteFileHash);
+  say('RECIBIDA Y VERIFICADA: '+remoteOnly.length+' registros nuevos; huella '+expected+'. OneDrive no se ha modificado.');
+  v23Epoch++;v23Key=null;v23Salt=null;location.reload();
+ }catch(e){
+  if(changed){try{localStorage.setItem(KEY,oldRaw);if(oldBase===null)localStorage.removeItem(V24_BASE);else localStorage.setItem(V24_BASE,oldBase);}catch(restoreError){say('ATENCIÓN: no se pudo restaurar la copia anterior: '+restoreError.message);}}
+  say('BLOQUEADO O NO VERIFICADO: '+(e?.message||String(e))+'\nNo vuelvas a pulsar Recibir hasta revisar el resultado.');
+ }finally{v17l33Busy=false;if(button)button.disabled=false;}
+}
+
 // 17L.30: preview only. Does not write to local storage or OneDrive.
 async function v17l30Preview(){
  const out=document.getElementById('v17l26-out');if(!out)return;
@@ -4075,7 +4156,7 @@ function v17l29Comparable(table, record){
 }
 // 17L.26 phase 1: read-only preflight. NO OneDrive writes, NO local replacement.
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.32</h2><p>Comparación y envío protegido de <strong>registros exclusivos locales</strong>. Si OneDrive tiene cambios exclusivos o hay conflictos, el envío se bloquea. No es todavía una fusión bidireccional general.</p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" onclick="v17l30Preview()">Vista previa de incorporación (solo lectura)</button> <button class="btn primary" id="v17l31-upload" onclick="v17l31Upload()">Incorporar cambios locales a OneDrive (protegido · diagnóstico 17L.32)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><p class="muted small">La vista previa es solo lectura. El envío requiere respaldo y confirmación explícita; nunca reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.33</h2><p>Comparación, envío protegido de registros exclusivos locales y recepción protegida de registros exclusivos de OneDrive. Si OneDrive tiene cambios exclusivos o hay conflictos, el envío se bloquea. No es todavía una fusión bidireccional general.</p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" onclick="v17l30Preview()">Vista previa de incorporación (solo lectura)</button> <button class="btn primary" id="v17l31-upload" onclick="v17l31Upload()">Incorporar cambios locales a OneDrive (protegido · diagnóstico 17L.32)</button> <button class="btn primary" id="v17l33-receive" onclick="v17l33Receive()">Recibir cambios de OneDrive (protegido · 17L.33)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><p class="muted small">La vista previa es solo lectura. El envío requiere respaldo y confirmación explícita; nunca reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
 }
 async function v17l26Check(){
  const button=document.getElementById('v17l26-check'),out=document.getElementById('v17l26-out');if(!button||button.disabled)return;
