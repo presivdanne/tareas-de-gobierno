@@ -1100,6 +1100,67 @@ function v17dRunDiagnostics(){
 }
 const v17dPreviousDataPage=dataPage;
 dataPage=function(){return v17dPreviousDataPage()+v17dDiagnosticsPanel()};
+
+// 17L.30: preview only. Does not write to local storage or OneDrive.
+async function v17l30Preview(){
+ const out=document.getElementById('v17l26-out');if(!out)return;
+ out.textContent='Preparando vista previa (solo lectura)…';
+ try{
+  await saveQueue;
+  if(!v23Key)throw Error('Desbloquea primero la base local.');
+  const raw=localStorage.getItem(KEY);if(!raw)throw Error('No existe copia local cifrada.');
+  const local=await v23Open(validateV23(JSON.parse(raw)),v23Key);
+  const li=v17eAnalyze(local).issues;if(li.length)throw Error('Integridad local: '+li.slice(0,3).join('; '));
+  const meta=await v24Meta();if(!meta)throw Error('No se encontró OneDrive.');
+  const remoteRaw=await v17lRemoteContent(meta);
+  const pass=prompt('Contraseña para verificar OneDrive (vista previa, solo lectura):');
+  if(pass===null){out.textContent='CANCELADO. Sin cambios.';return;}
+  const env=validateV23(JSON.parse(remoteRaw));
+  const remote=await v23Open(env,await v23Derive(pass,v23Unb64(env.salt)));
+  const ri=v17eAnalyze(remote).issues;if(ri.length)throw Error('Integridad remota: '+ri.slice(0,3).join('; '));
+  const additions=[],conflicts=[],remoteOnly=[];
+  for(const [table,pk] of Object.entries(V26_TABLES)){
+   const lm=new Map(local[table].map(r=>[String(r[pk]),r]));
+   const rm=new Map(remote[table].map(r=>[String(r[pk]),r]));
+   for(const [id,rec] of lm){
+    if(!rm.has(id))additions.push({table,id,record:rec});
+    else if(JSON.stringify(v17l29Comparable(table,rec))!==JSON.stringify(v17l29Comparable(table,rm.get(id))))conflicts.push(table+' ID '+id);
+   }
+   for(const id of rm.keys())if(!lm.has(id))remoteOnly.push(table+' ID '+id);
+  }
+  if(localStorage.getItem(KEY)!==raw)throw Error('La base local cambió durante la comprobación.');
+  const after=await v24Meta();if(after?.eTag!==meta.eTag)throw Error('OneDrive cambió durante la comprobación.');
+  const lines=[
+   'VISTA PREVIA 17L.30 — SOLO LECTURA',
+   'Local: '+local.Proyectos.length+' proyectos | OneDrive: '+remote.Proyectos.length+' proyectos',
+   'Registros nuevos locales: '+additions.length,
+   'Registros exclusivos de OneDrive: '+remoteOnly.length,
+   'Registros con mismo ID y contenido distinto: '+conflicts.length,
+   '',
+   ...additions.map(x=>'A incorporar: '+x.table+' ID '+x.id),
+   ...remoteOnly.map(x=>'Solo OneDrive: '+x),
+   ...conflicts.map(x=>'Conflicto: '+x),
+   ''
+  ];
+  if(conflicts.length||remoteOnly.length){
+   lines.push('BLOQUEADO PARA INCORPORACIÓN SIMPLE: se requiere una fusión bidireccional revisada.');
+  }else{
+   const candidate=structuredClone(remote);
+   for(const x of additions)candidate[x.table].push(structuredClone(x.record));
+   const issues=v17eAnalyze(candidate).issues;
+   if(issues.length){lines.push('BLOQUEADO: la base candidata presenta incidencias: '+issues.slice(0,6).join('; '));}
+   else{
+    const digest=await v17jDigest(candidate);
+    lines.push('APTA PARA UNA FUTURA INCORPORACIÓN PROTEGIDA: IDs y relaciones conocidas válidos.');
+    lines.push('Huella candidata: '+digest);
+    lines.push('Esta vista previa NO autoriza ni realiza el envío.');
+   }
+  }
+  lines.push('OneDrive ETag comprobado: '+String(meta.eTag));
+  lines.push('No se ha modificado OneDrive ni la base local.');
+  out.textContent=lines.join('\n');
+ }catch(e){out.textContent='VISTA PREVIA BLOQUEADA: '+(e?.message||String(e))+'\nNo se ha modificado ningún dato.';}
+}
 </script>
 <script>
 // 17E: extended read-only relational checks. This is NOT a full merge implementation.
@@ -3926,7 +3987,7 @@ function v17l29Comparable(table, record){
 }
 // 17L.26 phase 1: read-only preflight. NO OneDrive writes, NO local replacement.
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.29</h2><p>Comparación de campos opcionales vacíos, solo lectura. <strong>Esta versión todavía no sincroniza ni modifica datos.</strong></p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" disabled title="Pendiente de verificar la fusión genérica">Sincronizar ahora (pendiente)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><p class="muted small">No se envía nada a OneDrive ni se reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.30</h2><p>Comparación y vista previa de incorporación segura, solo lectura. <strong>Esta versión todavía no sincroniza ni modifica datos.</strong></p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" onclick="v17l30Preview()">Vista previa de incorporación (solo lectura)</button> <button class="btn" disabled title="La escritura todavía no está habilitada">Sincronizar ahora (pendiente)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><p class="muted small">No se envía nada a OneDrive ni se reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
 }
 async function v17l26Check(){
  const button=document.getElementById('v17l26-check'),out=document.getElementById('v17l26-out');if(!button||button.disabled)return;
