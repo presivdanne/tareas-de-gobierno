@@ -3915,9 +3915,18 @@ async function v17l247Export(){
  finally{btn.disabled=false;}
 }
 
+// 17L.29: field-aware, read-only comparison. Do not modify source records.
+function v17l29Comparable(table, record){
+ const copy={...record};
+ if(table==='Proyectos'){
+  if(!Object.prototype.hasOwnProperty.call(copy,'Prioridades_Congreso') || (Array.isArray(copy.Prioridades_Congreso)&&copy.Prioridades_Congreso.length===0))delete copy.Prioridades_Congreso;
+  if(!Object.prototype.hasOwnProperty.call(copy,'Tipo_Proyecto') || copy.Tipo_Proyecto==='')delete copy.Tipo_Proyecto;
+ }
+ return copy;
+}
 // 17L.26 phase 1: read-only preflight. NO OneDrive writes, NO local replacement.
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.28</h2><p>Diagnóstico de valores y tipos de campos distintos, solo lectura. <strong>Esta versión todavía no sincroniza ni modifica datos.</strong></p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" disabled title="Pendiente de verificar la fusión genérica">Sincronizar ahora (pendiente)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><p class="muted small">No se envía nada a OneDrive ni se reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.29</h2><p>Comparación de campos opcionales vacíos, solo lectura. <strong>Esta versión todavía no sincroniza ni modifica datos.</strong></p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" disabled title="Pendiente de verificar la fusión genérica">Sincronizar ahora (pendiente)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><p class="muted small">No se envía nada a OneDrive ni se reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
 }
 async function v17l26Check(){
  const button=document.getElementById('v17l26-check'),out=document.getElementById('v17l26-out');if(!button||button.disabled)return;
@@ -3940,10 +3949,11 @@ async function v17l26Check(){
    const lm=new Map(local[table].map(r=>[String(r[pk]),r]));
    const rm=new Map(remote[table].map(r=>[String(r[pk]),r]));
    let a=0,b=0,c=0;
-   for(const [key,val] of lm){if(!rm.has(key)){a++;onlyLocal++;}else if(JSON.stringify(val)!==JSON.stringify(rm.get(key))){
+   for(const [key,val] of lm){if(!rm.has(key)){a++;onlyLocal++;}else if(JSON.stringify(v17l29Comparable(table,val))!==JSON.stringify(v17l29Comparable(table,rm.get(key)))){
     c++;different++;
     const other=rm.get(key);
-    const fields=[...new Set([...Object.keys(val),...Object.keys(other)])].filter(f=>JSON.stringify(val[f])!==JSON.stringify(other[f]));
+    const comparableVal=v17l29Comparable(table,val),comparableOther=v17l29Comparable(table,other);
+    const fields=[...new Set([...Object.keys(comparableVal),...Object.keys(comparableOther)])].filter(f=>JSON.stringify(comparableVal[f])!==JSON.stringify(comparableOther[f]));
     fieldDetails.push(`${table} · ID ${key}: campos distintos: ${fields.join(', ') || '(diferencia de orden/estructura)'}`);
     if(table==='Proyectos' && (key==='7'||key==='8')){
      for(const field of fields.filter(f=>f==='Prioridades_Congreso'||f==='Tipo_Proyecto')){
@@ -3958,7 +3968,7 @@ async function v17l26Check(){
   if(localStorage.getItem(KEY)!==raw)throw Error('La base local cambió durante la comprobación; vuelve a comprobar.');
   const latest=await v24Meta();if(latest?.eTag!==meta.eTag)throw Error('OneDrive cambió durante la comprobación; vuelve a comprobar.');
   const localHash=await v17jDigest(local),remoteHash=await v17jDigest(remote);
-  out.textContent=`COMPROBACIÓN COMPLETA (solo lectura)\nLocal: ${local.Proyectos.length} proyectos\nOneDrive: ${remote.Proyectos.length} proyectos\nCoincidencias exactas por registro: ${same}\nSolo local: ${onlyLocal}\nSolo OneDrive: ${onlyRemote}\nMismo ID con contenido distinto: ${different}\n\n${changes.length?changes.join('\n'):'No se detectaron diferencias por registro.'}\n\nDETALLE DE CAMPOS MODIFICADOS (incluye valores de dos campos de prueba):\n${fieldDetails.length?fieldDetails.join('\n'):'Ninguno'}\n\nHuella local: ${localHash}\nHuella OneDrive: ${remoteHash}\n\n${localHash===remoteHash?'Las copias son idénticas.':'Hay diferencias: todavía NO se ha realizado ninguna fusión.'}\nNo se ha modificado OneDrive ni la base local.`;
+  out.textContent=`COMPROBACIÓN COMPLETA (solo lectura)\nLocal: ${local.Proyectos.length} proyectos\nOneDrive: ${remote.Proyectos.length} proyectos\nCoincidencias exactas por registro: ${same}\nSolo local: ${onlyLocal}\nSolo OneDrive: ${onlyRemote}\nMismo ID con contenido distinto: ${different}\n\n${changes.length?changes.join('\n'):'No se detectaron diferencias por registro.'}\n\nDETALLE DE DIFERENCIAS REALES (campos vacíos equivalentes ignorados):\n${fieldDetails.length?fieldDetails.join('\n'):'Ninguno'}\n\nHuella local: ${localHash}\nHuella OneDrive: ${remoteHash}\n\n${localHash===remoteHash?'Las copias son idénticas.':'Las huellas originales difieren; la comparación de registros usa equivalencia de campos opcionales vacíos. NO se ha realizado ninguna fusión.'}\nNo se ha modificado OneDrive ni la base local.`;
  }catch(err){out.textContent='COMPROBACIÓN NO COMPLETADA: '+(err?.message||String(err))+'\nNo se ha enviado ni reemplazado ningún dato.'}
  finally{button.disabled=false;}
 }
