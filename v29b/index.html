@@ -3917,7 +3917,7 @@ async function v17l247Export(){
 
 // 17L.26 phase 1: read-only preflight. NO OneDrive writes, NO local replacement.
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.26</h2><p>Primera fase: comprobación segura de cambios en ambas direcciones. <strong>Esta versión todavía no sincroniza ni modifica datos.</strong></p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" disabled title="Pendiente de verificar la fusión genérica">Sincronizar ahora (pendiente)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><p class="muted small">No se envía nada a OneDrive ni se reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.27</h2><p>Diagnóstico de diferencias por campo, solo lectura. <strong>Esta versión todavía no sincroniza ni modifica datos.</strong></p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" disabled title="Pendiente de verificar la fusión genérica">Sincronizar ahora (pendiente)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><p class="muted small">No se envía nada a OneDrive ni se reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
 }
 async function v17l26Check(){
  const button=document.getElementById('v17l26-check'),out=document.getElementById('v17l26-out');if(!button||button.disabled)return;
@@ -3935,19 +3935,24 @@ async function v17l26Check(){
   const env=validateV23(JSON.parse(remoteRaw));
   const remote=await v23Open(env,await v23Derive(password,v23Unb64(env.salt)));
   const remoteIssues=v17eAnalyze(remote).issues;if(remoteIssues.length)throw Error('Problemas de integridad en OneDrive: '+remoteIssues.slice(0,3).join('; '));
-  const changes=[];let same=0,onlyLocal=0,onlyRemote=0,different=0;
+  const changes=[];const fieldDetails=[];let same=0,onlyLocal=0,onlyRemote=0,different=0;
   for(const [table,pk] of Object.entries(V26_TABLES)){
    const lm=new Map(local[table].map(r=>[String(r[pk]),r]));
    const rm=new Map(remote[table].map(r=>[String(r[pk]),r]));
    let a=0,b=0,c=0;
-   for(const [key,val] of lm){if(!rm.has(key)){a++;onlyLocal++;}else if(JSON.stringify(val)!==JSON.stringify(rm.get(key))){c++;different++;}else same++;}
+   for(const [key,val] of lm){if(!rm.has(key)){a++;onlyLocal++;}else if(JSON.stringify(val)!==JSON.stringify(rm.get(key))){
+    c++;different++;
+    const other=rm.get(key);
+    const fields=[...new Set([...Object.keys(val),...Object.keys(other)])].filter(f=>JSON.stringify(val[f])!==JSON.stringify(other[f]));
+    fieldDetails.push(`${table} · ID ${key}: campos distintos: ${fields.join(', ') || '(diferencia de orden/estructura)'}`);
+   }else same++;}
    for(const key of rm.keys())if(!lm.has(key)){b++;onlyRemote++;}
    if(a||b||c)changes.push(`${table}: solo aquí ${a}, solo OneDrive ${b}, mismo ID distinto ${c}`);
   }
   if(localStorage.getItem(KEY)!==raw)throw Error('La base local cambió durante la comprobación; vuelve a comprobar.');
   const latest=await v24Meta();if(latest?.eTag!==meta.eTag)throw Error('OneDrive cambió durante la comprobación; vuelve a comprobar.');
   const localHash=await v17jDigest(local),remoteHash=await v17jDigest(remote);
-  out.textContent=`COMPROBACIÓN COMPLETA (solo lectura)\nLocal: ${local.Proyectos.length} proyectos\nOneDrive: ${remote.Proyectos.length} proyectos\nCoincidencias exactas por registro: ${same}\nSolo local: ${onlyLocal}\nSolo OneDrive: ${onlyRemote}\nMismo ID con contenido distinto: ${different}\n\n${changes.length?changes.join('\n'):'No se detectaron diferencias por registro.'}\n\nHuella local: ${localHash}\nHuella OneDrive: ${remoteHash}\n\n${localHash===remoteHash?'Las copias son idénticas.':'Hay diferencias: todavía NO se ha realizado ninguna fusión.'}\nNo se ha modificado OneDrive ni la base local.`;
+  out.textContent=`COMPROBACIÓN COMPLETA (solo lectura)\nLocal: ${local.Proyectos.length} proyectos\nOneDrive: ${remote.Proyectos.length} proyectos\nCoincidencias exactas por registro: ${same}\nSolo local: ${onlyLocal}\nSolo OneDrive: ${onlyRemote}\nMismo ID con contenido distinto: ${different}\n\n${changes.length?changes.join('\n'):'No se detectaron diferencias por registro.'}\n\nDETALLE DE CAMPOS MODIFICADOS (nombres, sin valores):\n${fieldDetails.length?fieldDetails.join('\n'):'Ninguno'}\n\nHuella local: ${localHash}\nHuella OneDrive: ${remoteHash}\n\n${localHash===remoteHash?'Las copias son idénticas.':'Hay diferencias: todavía NO se ha realizado ninguna fusión.'}\nNo se ha modificado OneDrive ni la base local.`;
  }catch(err){out.textContent='COMPROBACIÓN NO COMPLETADA: '+(err?.message||String(err))+'\nNo se ha enviado ni reemplazado ningún dato.'}
  finally{button.disabled=false;}
 }
