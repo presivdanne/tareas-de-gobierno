@@ -1101,6 +1101,87 @@ function v17dRunDiagnostics(){
 const v17dPreviousDataPage=dataPage;
 dataPage=function(){return v17dPreviousDataPage()+v17dDiagnosticsPanel()};
 
+// 17L.31: protected one-way incorporation of local-only records.
+// Explicitly blocks remote-only records, record conflicts, and unknown integrity problems.
+let v17l31Busy=false;
+async function v17l31Upload(){
+ const out=document.getElementById('v17l26-out'),button=document.getElementById('v17l31-upload');
+ if(v17l31Busy||!out)return;
+ v17l31Busy=true;if(button)button.disabled=true;
+ const say=s=>{out.textContent+=(out.textContent?'\n':'')+s;};
+ out.textContent='17L.31 · Comprobación protegida de incorporación…';
+ try{
+  await saveQueue;
+  if(!v23Key)throw Error('Desbloquea la base local primero.');
+  const localRaw=localStorage.getItem(KEY);
+  if(!localRaw)throw Error('No existe copia cifrada local.');
+  const local=await v23Open(validateV23(JSON.parse(localRaw)),v23Key);
+  const localIssues=v17eAnalyze(local).issues;
+  if(localIssues.length)throw Error('Integridad local: '+localIssues.slice(0,4).join('; '));
+  const first=await v24Meta();if(!first)throw Error('No existe el archivo remoto.');
+  const remoteRaw=await v17lRemoteContent(first);
+  const pass=prompt('Contraseña para verificar y cifrar la incorporación en OneDrive:');
+  if(pass===null){say('CANCELADO. Sin cambios.');return;}
+  const remoteEnv=validateV23(JSON.parse(remoteRaw));
+  const remoteSalt=v23Unb64(remoteEnv.salt),remoteKey=await v23Derive(pass,remoteSalt);
+  const remote=await v23Open(remoteEnv,remoteKey);
+  const remoteIssues=v17eAnalyze(remote).issues;
+  if(remoteIssues.length)throw Error('Integridad remota: '+remoteIssues.slice(0,4).join('; '));
+  const additions=[],conflicts=[],remoteOnly=[];
+  for(const [table,pk] of Object.entries(V26_TABLES)){
+   const lm=new Map(local[table].map(r=>[String(r[pk]),r]));
+   const rm=new Map(remote[table].map(r=>[String(r[pk]),r]));
+   for(const [id,rec] of lm){
+    if(!rm.has(id))additions.push({table,id,record:rec});
+    else if(JSON.stringify(v17l29Comparable(table,rec))!==JSON.stringify(v17l29Comparable(table,rm.get(id))))conflicts.push(table+' ID '+id);
+   }
+   for(const id of rm.keys())if(!lm.has(id))remoteOnly.push(table+' ID '+id);
+  }
+  if(conflicts.length||remoteOnly.length)throw Error('Requiere fusión revisada: '+conflicts.length+' conflictos y '+remoteOnly.length+' registros exclusivos de OneDrive. No se envió nada.');
+  if(!additions.length){say('SIN CAMBIOS: no hay registros nuevos para incorporar. OneDrive no se ha modificado.');return;}
+  const candidate=structuredClone(remote);
+  for(const x of additions)candidate[x.table].push(structuredClone(x.record));
+  const issues=v17eAnalyze(candidate).issues;
+  if(issues.length)throw Error('Integridad de candidata: '+issues.slice(0,5).join('; '));
+  const digest=await v17jDigest(candidate);
+  if(localStorage.getItem(KEY)!==localRaw)throw Error('La base local cambió durante la comprobación.');
+  const before=await v24Meta();
+  if(before?.eTag!==first.eTag)throw Error('OneDrive cambió durante la comprobación.');
+  const checkRaw=await v17lRemoteContent(before);
+  if(await v24Hash(checkRaw)!==await v24Hash(remoteRaw))throw Error('El contenido de OneDrive cambió durante la comprobación.');
+  say('APROBADA: '+additions.length+' registros nuevos, sin conflictos ni registros exclusivos remotos.');
+  for(const x of additions)say('A incorporar: '+x.table+' ID '+x.id);
+  say('Huella candidata: '+digest);
+  say('ETag remoto: '+first.eTag);
+  if(!confirm('17L.31: ¿Descargar primero una copia CIFRADA de OneDrive antes de incorporar '+additions.length+' registros?\n\nLa copia actual de OneDrive se conservará en Descargas.')){say('CANCELADO. Sin cambios.');return;}
+  const filename='Respaldo_OneDrive_ANTES_17L31_CIFRADO.json';
+  const blob=new Blob([remoteRaw],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),20000);
+  say('DESCARGA INICIADA: '+filename+'. Comprueba que existe antes de confirmar.');
+  if(!confirm('17L.31: Comprueba primero en Descargas que existe '+filename+'.\n\n¿Confirmas que la copia cifrada se descargó y autorizas incorporar '+additions.length+' registros a OneDrive?\n\nSe comprobará la versión remota y se verificará la escritura.')){say('CANCELADO. No se ha enviado nada.');return;}
+  if(localStorage.getItem(KEY)!==localRaw)throw Error('La base local cambió antes del envío.');
+  const finalMeta=await v24Meta();
+  if(finalMeta?.eTag!==first.eTag)throw Error('OneDrive cambió antes del envío.');
+  const finalRaw=await v17lRemoteContent(finalMeta);
+  if(await v24Hash(finalRaw)!==await v24Hash(remoteRaw))throw Error('El archivo remoto cambió antes del envío.');
+  const encrypted=JSON.stringify(await v23Seal(candidate,remoteKey,remoteSalt));
+  const response=await v24Fetch(V24_CONTENT,'PUT',encrypted,{'Content-Type':'application/json','If-Match':finalMeta.eTag});
+  if(response.status===409||response.status===412)throw Error('CONFLICTO: OneDrive rechazó la escritura por cambio de versión.');
+  if(!response.ok)throw Error('OneDrive respondió HTTP '+response.status+'. Comprueba el estado antes de reintentar.');
+  say('ENVÍO ACEPTADO. Verificando la copia remota…');
+  const uploadedMeta=await v24Meta();
+  const uploadedRaw=await v17lRemoteContent(uploadedMeta);
+  const uploadedEnv=validateV23(JSON.parse(uploadedRaw));
+  const uploaded=await v23Open(uploadedEnv,await v23Derive(pass,v23Unb64(uploadedEnv.salt)));
+  const uploadedDigest=await v17jDigest(uploaded);
+  if(uploadedDigest!==digest)throw Error('La verificación posterior NO coincide. No vuelvas a enviar; conserva los respaldos.');
+  say('ENVIADO Y VERIFICADO: OneDrive contiene los '+additions.length+' registros nuevos.');
+  say('Huella de datos OneDrive: '+uploadedDigest);
+  say('Nuevo ETag: '+uploadedMeta.eTag);
+  say('La base local de Chrome NO ha sido reemplazada. Edge NO se ha modificado.');
+ }catch(e){say('BLOQUEADO O NO VERIFICADO: '+(e?.message||String(e))+'\nNo vuelvas a pulsar Enviar hasta revisar el resultado.');}
+ finally{v17l31Busy=false;if(button)button.disabled=false;}
+}
 // 17L.30: preview only. Does not write to local storage or OneDrive.
 async function v17l30Preview(){
  const out=document.getElementById('v17l26-out');if(!out)return;
@@ -3987,7 +4068,7 @@ function v17l29Comparable(table, record){
 }
 // 17L.26 phase 1: read-only preflight. NO OneDrive writes, NO local replacement.
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.30</h2><p>Comparación y vista previa de incorporación segura, solo lectura. <strong>Esta versión todavía no sincroniza ni modifica datos.</strong></p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" onclick="v17l30Preview()">Vista previa de incorporación (solo lectura)</button> <button class="btn" disabled title="La escritura todavía no está habilitada">Sincronizar ahora (pendiente)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><p class="muted small">No se envía nada a OneDrive ni se reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.31</h2><p>Comparación y envío protegido de <strong>registros exclusivos locales</strong>. Si OneDrive tiene cambios exclusivos o hay conflictos, el envío se bloquea. No es todavía una fusión bidireccional general.</p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" onclick="v17l30Preview()">Vista previa de incorporación (solo lectura)</button> <button class="btn primary" id="v17l31-upload" onclick="v17l31Upload()">Incorporar cambios locales a OneDrive (protegido)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><p class="muted small">La vista previa es solo lectura. El envío requiere respaldo y confirmación explícita; nunca reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
 }
 async function v17l26Check(){
  const button=document.getElementById('v17l26-check'),out=document.getElementById('v17l26-out');if(!button||button.disabled)return;
