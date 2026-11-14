@@ -2174,15 +2174,22 @@ async function v17l2410Receive(){
   if(localStorage.getItem(KEY)!==oldRaw||(await v24Meta())?.eTag!==V2410.etag)throw Error('La base local o OneDrive cambió durante la verificación.');
   v2410Say('APROBADA: OneDrive contiene los 8 proyectos, 12 tablas íntegras, huella '+V2410.merge+' y ETag …,6.');
   const backupKey='gobierno_v29b_17l2410_backup_'+browser.toLowerCase(),proofKey='gobierno_v29b_17l2410_proof_'+browser.toLowerCase();
-  if(localStorage.getItem(backupKey))throw Error('Ya existe un respaldo 17L.24.10–11; no se sobrescribe.');
-  if(!confirm('17L.24.10–11: ¿Preparar la recepción de 8 proyectos en '+browser+'? Primero se descargará un respaldo cifrado de su base anterior.')){v2410Say('CANCELADO.');return}
-  const before=await v24Meta();if(before?.eTag!==V2410.etag||await v24Hash(await v17lRemoteContent(before))!==V2410.file)throw Error('OneDrive cambió antes del respaldo.');
-  if(localStorage.getItem(KEY)!==oldRaw)throw Error('Base local cambió antes del respaldo.');
-  localStorage.setItem(backupKey,oldRaw);if(localStorage.getItem(backupKey)!==oldRaw)throw Error('No se pudo comprobar el respaldo local.');
-  const blob=new Blob([oldRaw],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
-  const filename='Respaldo_'+browser+'_ANTES_17L2410_CIFRADO.json';a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);
-  v2410Say('RESPALDO: copia cifrada anterior conservada; descarga solicitada: '+filename);
-  if(!confirm('Comprueba que '+filename+' está en Descargas. ¿Reemplazar ahora la base local de '+browser+' por la fusión de 8 proyectos?')){v2410Say('CANCELADO: base local intacta; respaldo conservado.');return}
+  const existingBackup=localStorage.getItem(backupKey);
+  if(existingBackup!==null&&existingBackup!==oldRaw)throw Error('Existe un respaldo anterior DISTINTO de la base local actual. No se sobrescribe ni se recibe.');
+  const filename='Respaldo_'+browser+'_ANTES_17L2410_CIFRADO.json';
+  if(existingBackup===null){
+   if(!confirm('17L.24.10–11: ¿Preparar la recepción de 8 proyectos en '+browser+'? Primero se descargará un respaldo cifrado de su base anterior.')){v2410Say('CANCELADO.');return}
+   const before=await v24Meta();if(before?.eTag!==V2410.etag||await v24Hash(await v17lRemoteContent(before))!==V2410.file)throw Error('OneDrive cambió antes del respaldo.');
+   if(localStorage.getItem(KEY)!==oldRaw)throw Error('Base local cambió antes del respaldo.');
+   localStorage.setItem(backupKey,oldRaw);if(localStorage.getItem(backupKey)!==oldRaw)throw Error('No se pudo comprobar el respaldo local.');
+   const blob=new Blob([oldRaw],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+   a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),15000);
+   v2410Say('RESPALDO: copia cifrada anterior conservada; descarga solicitada: '+filename);
+  }else{
+   validateV23(JSON.parse(existingBackup));
+   v2410Say('RESPALDO EXISTENTE VERIFICADO: coincide exactamente con la base local cifrada actual. No se sobrescribe ni se descarga de nuevo.');
+  }
+  if(!confirm('Confirma que '+filename+' está guardado en Descargas (copia de aproximadamente 10 KB en Chrome). ¿Reemplazar ahora la base local de '+browser+' por la fusión verificada de 8 proyectos?')){v2410Say('CANCELADO: base local intacta; respaldo conservado.');return}
   if(localStorage.getItem(KEY)!==oldRaw)throw Error('La base local cambió antes de recibir.');
   const last=await v24Meta();if(last?.eTag!==V2410.etag||await v24Hash(await v17lRemoteContent(last))!==V2410.file||(await v24Meta())?.eTag!==V2410.etag)throw Error('OneDrive cambió antes de recibir.');
   if(localStorage.getItem(KEY)!==oldRaw)throw Error('La base local cambió antes de recibir.');
