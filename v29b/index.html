@@ -1109,7 +1109,7 @@ async function v17l31Upload(){
  if(v17l31Busy||!out)return;
  v17l31Busy=true;if(button)button.disabled=true;
  const say=s=>{out.textContent+=(out.textContent?'\n':'')+s;};
- out.textContent='17L.31 · Comprobación protegida de incorporación…';
+ out.textContent='17L.32 · Comprobación protegida de incorporación…';
  try{
   await saveQueue;
   if(!v23Key)throw Error('Desbloquea la base local primero.');
@@ -1165,10 +1165,17 @@ async function v17l31Upload(){
   const finalRaw=await v17lRemoteContent(finalMeta);
   if(await v24Hash(finalRaw)!==await v24Hash(remoteRaw))throw Error('El archivo remoto cambió antes del envío.');
   const encrypted=JSON.stringify(await v23Seal(candidate,remoteKey,remoteSalt));
-  const response=await v24Fetch(V24_CONTENT,'PUT',encrypted,{'Content-Type':'application/json','If-Match':finalMeta.eTag});
+  say('ETAPA: comprobaciones previas completas; iniciando solicitud PUT condicional a Microsoft Graph.');
+  let response;
+  try{
+   response=await v24Fetch(V24_CONTENT,'PUT',encrypted,{'Content-Type':'application/json','If-Match':finalMeta.eTag});
+  }catch(networkError){
+   throw Error('FALLO EN SOLICITUD PUT: '+(networkError?.message||String(networkError))+'. Puede ser un bloqueo CORS/preflight, red o conexión. El navegador no puede determinar si el servidor recibió la escritura. Verifica OneDrive con Comprobar cambios antes de reintentar.');
+  }
   if(response.status===409||response.status===412)throw Error('CONFLICTO: OneDrive rechazó la escritura por cambio de versión.');
   if(!response.ok)throw Error('OneDrive respondió HTTP '+response.status+'. Comprueba el estado antes de reintentar.');
   say('ENVÍO ACEPTADO. Verificando la copia remota…');
+  say('ETAPA: PUT respondió HTTP '+response.status+'; iniciando verificación posterior.');
   const uploadedMeta=await v24Meta();
   const uploadedRaw=await v17lRemoteContent(uploadedMeta);
   const uploadedEnv=validateV23(JSON.parse(uploadedRaw));
@@ -4068,7 +4075,7 @@ function v17l29Comparable(table, record){
 }
 // 17L.26 phase 1: read-only preflight. NO OneDrive writes, NO local replacement.
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.31</h2><p>Comparación y envío protegido de <strong>registros exclusivos locales</strong>. Si OneDrive tiene cambios exclusivos o hay conflictos, el envío se bloquea. No es todavía una fusión bidireccional general.</p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" onclick="v17l30Preview()">Vista previa de incorporación (solo lectura)</button> <button class="btn primary" id="v17l31-upload" onclick="v17l31Upload()">Incorporar cambios locales a OneDrive (protegido)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><p class="muted small">La vista previa es solo lectura. El envío requiere respaldo y confirmación explícita; nunca reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.32</h2><p>Comparación y envío protegido de <strong>registros exclusivos locales</strong>. Si OneDrive tiene cambios exclusivos o hay conflictos, el envío se bloquea. No es todavía una fusión bidireccional general.</p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" onclick="v17l30Preview()">Vista previa de incorporación (solo lectura)</button> <button class="btn primary" id="v17l31-upload" onclick="v17l31Upload()">Incorporar cambios locales a OneDrive (protegido · diagnóstico 17L.32)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><p class="muted small">La vista previa es solo lectura. El envío requiere respaldo y confirmación explícita; nunca reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
 }
 async function v17l26Check(){
  const button=document.getElementById('v17l26-check'),out=document.getElementById('v17l26-out');if(!button||button.disabled)return;
