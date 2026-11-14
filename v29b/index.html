@@ -1274,7 +1274,7 @@ async function v17l33Receive(){
 // This does not write to storage, export, or contact OneDrive.
 async function v17l34Preview(input){
  const out=document.getElementById('v17l34-out');if(!out)return;
- out.textContent='17L.34 · Comprobando las dos copias cifradas…';
+ out.textContent='17L.34a · Comprobando las dos copias cifradas…';
  try{
   await saveQueue;
   const f=input.files?.[0];if(!f)return;
@@ -1315,8 +1315,8 @@ async function v17l34Preview(input){
    }
    for(const id of em.keys())if(!cm.has(id))differences.push(table+' ID '+id+' solo Edge');
   }
-  if(differences.length!==2||!differences.includes('Tareas ID 7 distinto')||!differences.includes('Proyectos_Tareas_join ID '+String(cLink[linkPK])+' distinto')||String(cLink[linkPK])!==String(eLink[linkPK])){
-   throw Error('Se detectaron diferencias fuera de las dos colisiones previstas: '+differences.join('; '));
+  if(!differences.includes('Tareas ID 7 distinto')||differences.some(d=>d!=='Tareas ID 7 distinto'&&d!=='Proyectos_Tareas_join ID '+String(cLink[linkPK])+' distinto')||String(cLink[linkPK])!==String(eLink[linkPK])){
+   throw Error('Se detectaron diferencias fuera de la colisión de tarea y su vínculo: '+differences.join('; '));
   }
   const nextTask=Math.max(0,...chrome.Tareas.map(x=>Number(x[taskPK])),...edge.Tareas.map(x=>Number(x[taskPK])))+1;
   const nextLink=Math.max(0,...chrome.Proyectos_Tareas_join.map(x=>Number(x[linkPK])),...edge.Proyectos_Tareas_join.map(x=>Number(x[linkPK])))+1;
@@ -1335,7 +1335,7 @@ async function v17l34Preview(input){
   if(localStorage.getItem(KEY)!==localRaw)throw Error('Chrome cambió durante la simulación.');
   const digest=await v17jDigest(candidate);
   out.textContent=[
-   'SIMULACIÓN 17L.34 · SIN CAMBIOS',
+   'SIMULACIÓN 17L.34a · SIN CAMBIOS',
    'Chrome: '+chrome.Tareas.length+' tareas; Edge: '+edge.Tareas.length+' tareas.',
    'Conservar tarea Chrome ID 7: '+ct.Tarea,
    'Conservar vínculo Chrome ID '+cLink[linkPK]+' → Tarea_ID 7; Proyecto_ID '+cLink.Proyecto_ID,
@@ -4235,7 +4235,7 @@ function v17l29Comparable(table, record){
 }
 // 17L.26 phase 1: read-only preflight. NO OneDrive writes, NO local replacement.
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.34</h2><p>Comparación, envío protegido de registros exclusivos locales y recepción protegida de registros exclusivos de OneDrive. Si OneDrive tiene cambios exclusivos o hay conflictos, el envío se bloquea. No es todavía una fusión bidireccional general.</p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" onclick="v17l30Preview()">Vista previa de incorporación (solo lectura)</button> <button class="btn primary" id="v17l31-upload" onclick="v17l31Upload()">Incorporar cambios locales a OneDrive (protegido · diagnóstico 17L.32)</button> <button class="btn primary" id="v17l33-receive" onclick="v17l33Receive()">Recibir cambios de OneDrive (protegido · 17L.33)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><div class="panel" style="border:2px solid #176e9e;margin-top:18px"><h3>17L.34 · Simular conservación de ambas tareas (solo lectura)</h3><p>En Chrome, selecciona la copia CIFRADA de Edge. Reasigna en memoria los IDs de la tarea y su vínculo; comprueba las 12 tablas. No guarda ni envía datos.</p><label class="btn">Seleccionar copia CIFRADA de Edge <input type="file" accept=".json,application/json" style="display:none" onchange="v17l34Preview(this)"></label><div id="v17l34-out" style="white-space:pre-wrap;margin-top:12px" aria-live="polite">Esperando archivo.</div></div><p class="muted small">La vista previa es solo lectura. El envío requiere respaldo y confirmación explícita; nunca reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar con OneDrive · 17L.34a</h2><p>Comparación, envío protegido de registros exclusivos locales y recepción protegida de registros exclusivos de OneDrive. Si OneDrive tiene cambios exclusivos o hay conflictos, el envío se bloquea. No es todavía una fusión bidireccional general.</p><p>Comprueba las 12 tablas y muestra registros presentes solo en este dispositivo, solo en OneDrive o con el mismo identificador pero contenido distinto.</p><button class="btn primary" id="v17l26-check" onclick="v17l26Check()">Comprobar cambios (solo lectura)</button> <button class="btn" onclick="v17l30Preview()">Vista previa de incorporación (solo lectura)</button> <button class="btn primary" id="v17l31-upload" onclick="v17l31Upload()">Incorporar cambios locales a OneDrive (protegido · diagnóstico 17L.32)</button> <button class="btn primary" id="v17l33-receive" onclick="v17l33Receive()">Recibir cambios de OneDrive (protegido · 17L.33)</button><div id="v17l26-out" style="white-space:pre-wrap;margin-top:16px" aria-live="polite"></div><div class="panel" style="border:2px solid #176e9e;margin-top:18px"><h3>17L.34a · Simular conservación de ambas tareas (solo lectura)</h3><p>En Chrome, selecciona la copia CIFRADA de Edge. Reasigna en memoria los IDs de la tarea y su vínculo; comprueba las 12 tablas. No guarda ni envía datos.</p><label class="btn">Seleccionar copia CIFRADA de Edge <input type="file" accept=".json,application/json" style="display:none" onchange="v17l34Preview(this)"></label><div id="v17l34-out" style="white-space:pre-wrap;margin-top:12px" aria-live="polite">Esperando archivo.</div></div><p class="muted small">La vista previa es solo lectura. El envío requiere respaldo y confirmación explícita; nunca reemplaza la base local. Los conflictos requieren revisión.</p></div>`;
 }
 async function v17l26Check(){
  const button=document.getElementById('v17l26-check'),out=document.getElementById('v17l26-out');if(!button||button.disabled)return;
