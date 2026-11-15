@@ -3138,7 +3138,7 @@ async function v17l54eSend(){
   }
   if(total!==63)throw Error('Se esperaban 63 registros de referencia, hay '+total);
   if(differences.length!==2||differences.some(d=>d.table!=='To_Dos'||!['12','13'].includes(d.id)))throw Error('Diferencias inesperadas: '+differences.map(x=>x.table+' ID '+x.id).join(', '));
-  const d12=differences.find(x=>x.id==='12'),d13=differences.find(x=>x.id==='13');
+  const d12=differences.find(x=>x.id==='12'),d13=differences.find(x=>x.id==='12');
   const changed=(x,y)=>[...new Set([...Object.keys(x),...Object.keys(y)])].filter(k=>!same(x[k],y[k]));
   if(!same(d12.b,d12.r)||changed(d12.b,d12.l).join(',')!=='To_Do'||d12.l.To_Do!=='Test to-do 54a Edge Independent')throw Error('ID 12 no coincide con el cambio independiente esperado.');
   if(changed(d13.b,d13.l).join(',')!=='To_Do'||changed(d13.b,d13.r).join(',')!=='To_Do'||d13.l.To_Do!=='Test to-do 54a Edge'||d13.r.To_Do!=='Test to-do 54a Chrome')throw Error('El conflicto de ID 13 cambió; no escribir.');
