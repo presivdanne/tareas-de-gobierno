@@ -4617,6 +4617,81 @@ function v17l65SelfTest(){
 
 
 
+
+// 17L.71: real-data, read-only deletion impact report. No writes or tombstone changes.
+let v17l71Busy=false;
+async function v17l71DeletionAudit(){
+ const out=document.getElementById('v17l71-out'),btn=document.getElementById('v17l71-audit');
+ if(!out||!btn||v17l71Busy)return;
+ v17l71Busy=true;btn.disabled=true;out.textContent='17L.71 · Analizando bajas y dependencias (SOLO LECTURA)…';
+ const say=s=>out.textContent+='\n'+s;
+ try{
+  await saveQueue;
+  if(!v23Key)throw Error('Desbloquea primero la base local.');
+  const localRaw=localStorage.getItem(KEY),baseRaw=localStorage.getItem(V17L48_BASELINE);
+  if(!localRaw||!baseRaw)throw Error('Falta copia local o referencia.');
+  const base=await v23Open(validateV23(JSON.parse(baseRaw)),v23Key);
+  const local=await v23Open(validateV23(JSON.parse(localRaw)),v23Key);
+  if(base._v17l48_reference?.version!=='17L.48a')throw Error('Referencia no reconocida.');
+  const meta=await v24Meta();if(!meta?.eTag)throw Error('Falta ETag OneDrive.');
+  const remoteRaw=await v17lRemoteContent(meta),remoteHash=await v24Hash(remoteRaw);
+  const pass=prompt('17L.71: contraseña de OneDrive (SOLO LECTURA):');
+  if(pass===null){say('CANCELADO.');return;}
+  const env=validateV23(JSON.parse(remoteRaw));
+  const remote=await v23Open(env,await v23Derive(pass,v23Unb64(env.salt)));
+  const same=(a,b)=>JSON.stringify(v26Sort(a))===JSON.stringify(v26Sort(b));
+  if(!same(base._v17l49_deletions,local._v17l49_deletions)||
+     !same(base._v17l49_deletions,remote._v17l49_deletions))
+   throw Error('Marcadores de eliminación diferentes: revisión manual.');
+  const snapshot=db=>Object.fromEntries(Object.entries(V26_TABLES).map(([table,pk])=>{
+   if(!Array.isArray(db[table]))throw Error('Tabla ausente: '+table);
+   return [table,db[table].map(row=>v17l29Comparable(table,row))];
+  }));
+  const b=snapshot(base),l=snapshot(local),r=snapshot(remote);
+  const plan=v17l65SimulatedPlan(b,l,r);
+  const deletions=[],otherChanges=[];
+  for(const [table,pk] of Object.entries(V26_TABLES)){
+   const bm=new Map(b[table].map(x=>[String(x[pk]),x]));
+   const lm=new Map(l[table].map(x=>[String(x[pk]),x]));
+   const rm=new Map(r[table].map(x=>[String(x[pk]),x]));
+   for(const [id,old] of bm){
+    const lv=lm.get(id),rv=rm.get(id);
+    const kind=v17l64Classify(old,lv,rv);
+    if(kind.startsWith('baja')||kind==='conflicto baja/edición'){
+     const candidate=structuredClone(plan.candidate);
+     // Deletion of a parent may require other dependent records to be removed.
+     // Report the proposed candidate's integrity, never cascade automatically.
+     deletions.push({table,id,kind,local:lv!==undefined,remote:rv!==undefined});
+    }else if(kind!=='sin cambios')otherChanges.push(table+' ID '+id+' · '+kind);
+   }
+   for(const id of new Set([...lm.keys(),...rm.keys()])){
+    if(!bm.has(id))otherChanges.push(table+' ID '+id+' · '+v17l64Classify(undefined,lm.get(id),rm.get(id)));
+   }
+  }
+  await saveQueue;
+  const endMeta=await v24Meta();
+  if(localStorage.getItem(KEY)!==localRaw||localStorage.getItem(V17L48_BASELINE)!==baseRaw||
+     endMeta?.eTag!==meta.eTag||await v24Hash(await v17lRemoteContent(endMeta))!==remoteHash)
+   throw Error('Datos o ETag cambiaron durante la revisión.');
+  out.textContent=[
+   '17L.71 · INFORME DE BAJAS REALES · SOLO LECTURA',
+   'ETag OneDrive: '+meta.eTag,
+   'Bajas o conflictos de baja: '+deletions.length,
+   ...deletions.slice(0,50).map(d=>'• '+d.table+' ID '+d.id+' · '+d.kind+
+      ' · local '+(d.local?'presente':'ausente')+' / OneDrive '+(d.remote?'presente':'ausente')),
+   ...(deletions.length>50?['… y '+(deletions.length-50)+' bajas más']:[]),
+   'Otros cambios: '+otherChanges.length,
+   ...otherChanges.slice(0,15).map(s=>'• '+s),
+   'Integridad del candidato global: '+(plan.allowed?'VÁLIDA EN LA SIMULACIÓN':'BLOQUEADA'),
+   ...plan.blocks.slice(0,15).map(s=>'BLOQUEO: '+s),
+   deletions.length===0?'SIN BAJAS PENDIENTES. No se necesita eliminar nada.':
+    'BAJAS DETECTADAS: NO AUTORIZADAS PARA ESCRITURA. Revisar dependencias y respaldos.',
+   'NINGÚN DATO MODIFICADO. No se ejecuta eliminación, cascada, fusión ni renovación.'
+  ].join('\n');
+ }catch(e){say('DETENIDO: '+(e?.message||String(e)));say('No se ha ejecutado ningún borrado.');}
+ finally{v17l71Busy=false;btn.disabled=false;}
+}
+
 // 17L.70 consolidated read-only entry point. Existing protected operations remain
 // available only inside the explicitly opened advanced-tools section.
 let v17l70Busy=false;
@@ -9745,13 +9820,18 @@ function v17l29Comparable(table, record){
 }
 // 17L.26 phase 1: read-only preflight. NO OneDrive writes, NO local replacement.
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar OneDrive · 17L.70</h2>
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar OneDrive · 17L.71</h2>
 <p>Centro de sincronización consolidado. Primero analiza las tres copias; ninguna acción de escritura se ejecuta automáticamente.</p>
 <div class="panel" style="border:2px solid #176e9e;margin:16px 0">
 <h3>1. Estado y vista previa de las tres copias (SOLO LECTURA)</h3>
 <p>Compara referencia, este navegador y OneDrive; clasifica altas, bajas, ediciones y conflictos y verifica relaciones. El resultado es un diagnóstico, no una autorización de escritura.</p>
 <button class="btn primary" id="v17l70-audit" onclick="v17l70Audit()">Comprobar sincronización segura</button>
 <div id="v17l70-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" aria-live="polite">Sin analizar.</div></div>
+<div class="panel" style="border:2px solid #a36a18;margin:16px 0">
+<h3>17L.71 · Informe de bajas y dependencias (SOLO LECTURA)</h3>
+<p>Examina las eliminaciones reales desde la referencia, distingue bajas locales y remotas, detecta conflictos de baja frente a edición y verifica la integridad del resultado propuesto. No ejecuta cascadas ni borra registros.</p>
+<button class="btn" id="v17l71-audit" onclick="v17l71DeletionAudit()">Analizar bajas y dependencias (solo lectura)</button>
+<div id="v17l71-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" aria-live="polite">Sin analizar.</div></div>
 <div class="panel" style="margin:16px 0">
 <h3>2. Qué hacer con el resultado</h3>
 <p><strong>Sin operaciones:</strong> no hacer nada. <strong>Altas o ediciones:</strong> verificar cada registro y su relación antes de usar una operación protegida específica. <strong>Bajas, conflictos o colisiones:</strong> no aplicar cambios automáticamente; requieren resolución explícita y respaldo cifrado.</p>
