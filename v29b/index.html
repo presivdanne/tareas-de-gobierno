@@ -4558,8 +4558,8 @@ function v17l65SimulatedPlan(base,local,remote){
     blocks.push(description);if(b!==undefined)next.push(clone(b));continue;
    }
    // Single-sided and identical changes have an unambiguous target state.
-   const chosen=['cambio local','alta local','baja remota'].includes(kind)?l:
-     ['cambio remoto','alta remota','baja local'].includes(kind)?r:
+   const chosen=['cambio local','alta local','baja local'].includes(kind)?l:
+     ['cambio remoto','alta remota','baja remota'].includes(kind)?r:
      ['cambio idéntico','alta idéntica'].includes(kind)?l:
      kind==='sin cambios'?b:undefined;
    if(chosen!==undefined)next.push(clone(chosen));
