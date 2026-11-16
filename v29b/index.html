@@ -4618,6 +4618,120 @@ function v17l65SelfTest(){
 
 
 
+
+// 17L.73: guarded one-record local deletion -> OneDrive, without cascading.
+let v17l73Busy=false;
+async function v17l73SendDeletion(){
+ const out=document.getElementById('v17l73-out'),btn=document.getElementById('v17l73-send');
+ if(!out||!btn||v17l73Busy)return;
+ v17l73Busy=true;btn.disabled=true;out.textContent='17L.73 · Prevalidando baja única protegida…';
+ const say=s=>out.textContent+='\n'+s;
+ let attempted=false;
+ const eq=(a,b)=>JSON.stringify(v26Sort(a))===JSON.stringify(v26Sort(b));
+ try{
+  await saveQueue;
+  if(!v23Key||!v23Salt)throw Error('Desbloquea la base local.');
+  const localRaw=localStorage.getItem(KEY),baseRaw=localStorage.getItem(V17L48_BASELINE);
+  if(!localRaw||!baseRaw)throw Error('Falta referencia o base local.');
+  const base=await v23Open(validateV23(JSON.parse(baseRaw)),v23Key);
+  const local=await v23Open(validateV23(JSON.parse(localRaw)),v23Key);
+  if(base._v17l48_reference?.version!=='17L.48a')throw Error('Referencia no reconocida.');
+  if(v17eAnalyze(base).issues.length||v17eAnalyze(local).issues.length||
+     v2410OpenMatches(local).length)throw Error('Integridad de la referencia o copia local inválida.');
+  const meta=await v24Meta();if(!meta?.eTag)throw Error('Falta ETag OneDrive.');
+  const remoteRaw=await v17lRemoteContent(meta),remoteHash=await v24Hash(remoteRaw);
+  const pass=prompt('17L.73: contraseña OneDrive para PREVALIDAR baja única:');
+  if(pass===null){say('CANCELADO.');return;}
+  const env=validateV23(JSON.parse(remoteRaw));
+  const remoteKey=await v23Derive(pass,v23Unb64(env.salt));
+  const remote=await v23Open(env,remoteKey);
+  if(v17eAnalyze(remote).issues.length||v2410OpenMatches(remote).length)
+   throw Error('Integridad OneDrive no válida.');
+  if(!eq(base._v17l49_deletions,local._v17l49_deletions)||
+     !eq(base._v17l49_deletions,remote._v17l49_deletions))
+   throw Error('Marcadores de eliminación distintos: no aplicar.');
+  let deleted=null,count=0;
+  for(const [table,pk] of Object.entries(V26_TABLES)){
+   if(![base,local,remote].every(db=>Array.isArray(db[table])))throw Error('Tabla ausente: '+table);
+   const maps=[base,local,remote].map(db=>new Map(db[table].map(x=>[String(x[pk]),v17l29Comparable(table,x)])));
+   const [bm,lm,rm]=maps;
+   if(maps.some((m,i)=>m.size!==[base,local,remote][i][table].length))throw Error('ID duplicado: '+table);
+   if(rm.size!==bm.size)throw Error('OneDrive ya contiene altas o bajas: '+table);
+   for(const [id,b] of bm){
+    if(!rm.has(id)||!eq(b,rm.get(id)))throw Error('OneDrive difiere de la referencia: '+table+' ID '+id);
+    if(!lm.has(id)){
+     if(deleted)throw Error('Hay más de una baja; solo se admite una.');
+     deleted={table,pk,id};
+    }else if(!eq(b,lm.get(id)))throw Error('Hay una edición local adicional: '+table+' ID '+id);
+    count++;
+   }
+   for(const id of lm.keys())if(!bm.has(id))throw Error('Hay un alta local adicional: '+table+' ID '+id);
+  }
+  if(!deleted){say('SIN BAJAS PENDIENTES. No se requiere enviar nada.');return;}
+  const candidate=structuredClone(remote);
+  candidate[deleted.table]=candidate[deleted.table].filter(x=>String(x[deleted.pk])!==deleted.id);
+  if(!eq(candidate._v17l49_deletions,local._v17l49_deletions))
+   throw Error('Metadatos de baja no coinciden.');
+  const issues=v17eAnalyze(candidate).issues;
+  if(issues.length)throw Error('BAJA BLOQUEADA por dependencias: '+issues.slice(0,5).join('; '));
+  // The candidate must match the entire local data model, not just table counts.
+  for(const table of Object.keys(V26_TABLES)){
+   const pk=V26_TABLES[table];
+   const norm=rows=>rows.map(x=>v17l29Comparable(table,x)).sort((a,b)=>String(a[pk]).localeCompare(String(b[pk])));
+   if(!eq(norm(candidate[table]),norm(local[table])))throw Error('El candidato difiere de la copia local: '+table);
+  }
+  const stable=async()=>{
+   await saveQueue;
+   const m=await v24Meta();
+   if(localStorage.getItem(KEY)!==localRaw||localStorage.getItem(V17L48_BASELINE)!==baseRaw||
+      m?.eTag!==meta.eTag||await v24Hash(await v17lRemoteContent(m))!==remoteHash)
+    throw Error('Datos o ETag cambiaron; envío cancelado.');
+  };
+  await stable();
+  say('BAJA ÚNICA VALIDADA: '+deleted.table+' ID '+deleted.id+'.');
+  say('Los otros '+(count-1)+' registros permanecen intactos. Integridad válida.');
+  if(!confirm('17L.73 · BAJA ÚNICA\n\nEnviar eliminación de '+deleted.table+' ID '+deleted.id+
+    ' a OneDrive. Sin cascadas. No renueva la referencia.\n\n¿Preparar respaldo cifrado previo?')){
+   say('CANCELADO.');return;
+  }
+  if(prompt('Escribe exactamente ELIMINAR 73 para continuar:')!=='ELIMINAR 73'){
+   say('CANCELADO: autorización incorrecta.');return;
+  }
+  await stable();
+  const filename='Respaldo_OneDrive_ANTES_BAJA_17L73_'+remoteHash.slice(0,12)+'_CIFRADO.json';
+  const url=URL.createObjectURL(new Blob([remoteRaw],{type:'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),20000);
+  say('DESCARGA INICIADA: '+filename);
+  if(!confirm('Verifica que el respaldo CIFRADO está guardado en Descargas.\n\n¿AUTORIZAS eliminar únicamente '+deleted.table+' ID '+deleted.id+' en OneDrive?')){
+   say('CANCELADO. No se envió nada.');return;
+  }
+  await stable();
+  const digest=await v17jDigest(candidate);
+  const sealed=JSON.stringify(await v23Seal(candidate,remoteKey,v23Unb64(env.salt)));
+  const roundtrip=await v23Open(validateV23(JSON.parse(sealed)),remoteKey);
+  if(await v17jDigest(roundtrip)!==digest||v17eAnalyze(roundtrip).issues.length)
+   throw Error('Candidato cifrado no supera verificación.');
+  await stable();
+  say('Enviando con If-Match…');attempted=true;
+  const response=await v24Fetch(V24_CONTENT,'PUT',sealed,{'Content-Type':'application/json','If-Match':meta.eTag});
+  if(!response.ok)throw Error('OneDrive HTTP '+response.status+'. NO reintentar sin auditoría.');
+  const finalMeta=await v24Meta(),finalRaw=await v17lRemoteContent(finalMeta);
+  const finalEnv=validateV23(JSON.parse(finalRaw));
+  const verified=await v23Open(finalEnv,await v23Derive(pass,v23Unb64(finalEnv.salt)));
+  if(v17eAnalyze(verified).issues.length||await v17jDigest(verified)!==digest)
+   throw Error('Resultado no verificable. NO reintentar.');
+  if(localStorage.getItem(KEY)!==localRaw||localStorage.getItem(V17L48_BASELINE)!==baseRaw)
+   throw Error('Cambio local inesperado; auditar antes de continuar.');
+  say('BAJA 17L.73 ENVIADA Y VERIFICADA: '+deleted.table+' ID '+deleted.id);
+  say('ETag nuevo: '+finalMeta.eTag+'. Referencia NO renovada. Edge NO modificado.');
+  say('NO repetir envío. Auditar las tres copias antes de recibir en Edge.');
+ }catch(e){
+  say('BLOQUEADO O NO VERIFICADO: '+(e?.message||String(e)));
+  say(attempted?'SE INTENTÓ ESCRIBIR: NO REPETIR sin auditoría.':'NO se inició escritura a OneDrive.');
+ }finally{v17l73Busy=false;btn.disabled=false;}
+}
+
 // 17L.71: real-data, read-only deletion impact report. No writes or tombstone changes.
 let v17l71Busy=false;
 async function v17l71DeletionAudit(){
@@ -9829,7 +9943,7 @@ function v17l29Comparable(table, record){
 }
 // 17L.26 phase 1: read-only preflight. NO OneDrive writes, NO local replacement.
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar OneDrive · 17L.72</h2>
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar OneDrive · 17L.73</h2>
 <p>Centro de sincronización consolidado. Primero analiza las tres copias; ninguna acción de escritura se ejecuta automáticamente.</p>
 <div class="panel" style="border:2px solid #176e9e;margin:16px 0">
 <h3>1. Estado y vista previa de las tres copias (SOLO LECTURA)</h3>
@@ -9841,6 +9955,12 @@ function v17l26Panel(){
 <p>Examina las bajas reales y calcula el impacto de eliminar cada registro por separado. Muestra hasta cinco incidencias de relación por baja y bloquea conceptualmente las eliminaciones que dejarían datos huérfanos. Esta es una comprobación previa, sin borrados ni cascadas automáticas.</p>
 <button class="btn" id="v17l71-audit" onclick="v17l71DeletionAudit()">Analizar bajas y dependencias (solo lectura)</button>
 <div id="v17l71-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" aria-live="polite">Sin analizar.</div></div>
+<div class="panel" style="border:2px solid #b44c38;margin:16px 0">
+<h3>17L.73 · Envío protegido de UNA baja local</h3>
+<p>Operación avanzada: admite exactamente una baja local respecto a la referencia, sin otros cambios y sin dependencias huérfanas. Exige copia cifrada de OneDrive, dos confirmaciones, ETag sin cambios, If-Match y verificación posterior. No propaga bajas remotas, no hace cascadas ni renueva la referencia.</p>
+<p><strong>NO usar para pruebas sobre los 65 registros reales.</strong> Si no hay bajas, informa «SIN BAJAS PENDIENTES» sin escribir.</p>
+<button class="btn" id="v17l73-send" onclick="v17l73SendDeletion()">Prevalidar baja única (puede solicitar autorización de envío)</button>
+<div id="v17l73-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" aria-live="polite">Sin prevalidar.</div></div>
 <div class="panel" style="margin:16px 0">
 <h3>2. Qué hacer con el resultado</h3>
 <p><strong>Sin operaciones:</strong> no hacer nada. <strong>Altas o ediciones:</strong> verificar cada registro y su relación antes de usar una operación protegida específica. <strong>Bajas, conflictos o colisiones:</strong> no aplicar cambios automáticamente; requieren resolución explícita y respaldo cifrado.</p>
