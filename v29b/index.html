@@ -4623,7 +4623,7 @@ let v17l71Busy=false;
 async function v17l71DeletionAudit(){
  const out=document.getElementById('v17l71-out'),btn=document.getElementById('v17l71-audit');
  if(!out||!btn||v17l71Busy)return;
- v17l71Busy=true;btn.disabled=true;out.textContent='17L.71 · Analizando bajas y dependencias (SOLO LECTURA)…';
+ v17l71Busy=true;btn.disabled=true;out.textContent='17L.72 · Analizando bajas y dependencias (SOLO LECTURA)…';
  const say=s=>out.textContent+='\n'+s;
  try{
   await saveQueue;
@@ -4659,9 +4659,13 @@ async function v17l71DeletionAudit(){
     const kind=v17l64Classify(old,lv,rv);
     if(kind.startsWith('baja')||kind==='conflicto baja/edición'){
      const candidate=structuredClone(plan.candidate);
-     // Deletion of a parent may require other dependent records to be removed.
-     // Report the proposed candidate's integrity, never cascade automatically.
-     deletions.push({table,id,kind,local:lv!==undefined,remote:rv!==undefined});
+     // Simulate removal from the unchanged baseline, preserving all other rows.
+     // The resulting integrity issues expose orphaned relationships.
+     const single=structuredClone(b);
+     single[table]=single[table].filter(x=>String(x[pk])!==id);
+     const dependencies=v17eAnalyze(single).issues;
+     deletions.push({table,id,kind,local:lv!==undefined,remote:rv!==undefined,
+       dependencyCount:dependencies.length,dependencies:dependencies.slice(0,5)});
     }else if(kind!=='sin cambios')otherChanges.push(table+' ID '+id+' · '+kind);
    }
    for(const id of new Set([...lm.keys(),...rm.keys()])){
@@ -4674,15 +4678,20 @@ async function v17l71DeletionAudit(){
      endMeta?.eTag!==meta.eTag||await v24Hash(await v17lRemoteContent(endMeta))!==remoteHash)
    throw Error('Datos o ETag cambiaron durante la revisión.');
   out.textContent=[
-   '17L.71 · INFORME DE BAJAS REALES · SOLO LECTURA',
+   '17L.72 · INFORME DE BAJAS Y DEPENDENCIAS · SOLO LECTURA',
    'ETag OneDrive: '+meta.eTag,
    'Bajas o conflictos de baja: '+deletions.length,
-   ...deletions.slice(0,50).map(d=>'• '+d.table+' ID '+d.id+' · '+d.kind+
-      ' · local '+(d.local?'presente':'ausente')+' / OneDrive '+(d.remote?'presente':'ausente')),
+   ...deletions.slice(0,50).flatMap(d=>[
+      '• '+d.table+' ID '+d.id+' · '+d.kind+
+      ' · local '+(d.local?'presente':'ausente')+' / OneDrive '+(d.remote?'presente':'ausente')+
+      ' · incidencias al eliminar aisladamente: '+d.dependencyCount,
+      ...d.dependencies.map(s=>'    DEPENDENCIA: '+s)
+   ]),
    ...(deletions.length>50?['… y '+(deletions.length-50)+' bajas más']:[]),
    'Otros cambios: '+otherChanges.length,
    ...otherChanges.slice(0,15).map(s=>'• '+s),
    'Integridad del candidato global: '+(plan.allowed?'VÁLIDA EN LA SIMULACIÓN':'BLOQUEADA'),
+   'Política de seguridad: las bajas con dependencias se bloquean; no hay borrado en cascada automático.',
    ...plan.blocks.slice(0,15).map(s=>'BLOQUEO: '+s),
    deletions.length===0?'SIN BAJAS PENDIENTES. No se necesita eliminar nada.':
     'BAJAS DETECTADAS: NO AUTORIZADAS PARA ESCRITURA. Revisar dependencias y respaldos.',
@@ -9820,7 +9829,7 @@ function v17l29Comparable(table, record){
 }
 // 17L.26 phase 1: read-only preflight. NO OneDrive writes, NO local replacement.
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar OneDrive · 17L.71</h2>
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Sincronizar OneDrive · 17L.72</h2>
 <p>Centro de sincronización consolidado. Primero analiza las tres copias; ninguna acción de escritura se ejecuta automáticamente.</p>
 <div class="panel" style="border:2px solid #176e9e;margin:16px 0">
 <h3>1. Estado y vista previa de las tres copias (SOLO LECTURA)</h3>
@@ -9828,8 +9837,8 @@ function v17l26Panel(){
 <button class="btn primary" id="v17l70-audit" onclick="v17l70Audit()">Comprobar sincronización segura</button>
 <div id="v17l70-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" aria-live="polite">Sin analizar.</div></div>
 <div class="panel" style="border:2px solid #a36a18;margin:16px 0">
-<h3>17L.71 · Informe de bajas y dependencias (SOLO LECTURA)</h3>
-<p>Examina las eliminaciones reales desde la referencia, distingue bajas locales y remotas, detecta conflictos de baja frente a edición y verifica la integridad del resultado propuesto. No ejecuta cascadas ni borra registros.</p>
+<h3>17L.72 · Informe de bajas y dependencias (SOLO LECTURA)</h3>
+<p>Examina las bajas reales y calcula el impacto de eliminar cada registro por separado. Muestra hasta cinco incidencias de relación por baja y bloquea conceptualmente las eliminaciones que dejarían datos huérfanos. Esta es una comprobación previa, sin borrados ni cascadas automáticas.</p>
 <button class="btn" id="v17l71-audit" onclick="v17l71DeletionAudit()">Analizar bajas y dependencias (solo lectura)</button>
 <div id="v17l71-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" aria-live="polite">Sin analizar.</div></div>
 <div class="panel" style="margin:16px 0">
