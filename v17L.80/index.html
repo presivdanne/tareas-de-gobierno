@@ -2,7 +2,7 @@
 <strong>17L.80 · PUT solo sandbox y solo baja única protegida</strong>
 <label style="display:inline-block;margin-left:12px"><input type="checkbox" onchange="v17l75Arm(this.checked)"> Habilitar PUT solo al archivo sandbox</label>
 <div id="v17l75-armed-status">DESACTIVADO: todas las escrituras remotas bloqueadas.</div>
-</div><div id="v23gate" style="max-width:650px;margin:8vh auto;padding:20px"><div class="panel"><h1>Tareas de Gobierno · V29b</h1><p>Prueba cifrada con Fusión local + modo sin conexión · Solo datos inventados</p><div id="v23form"></div><p id="v23msg" style="color:#a12631"></p></div></div><div class="shell"><aside class="side"><div class="brand">Tareas de Gobierno<small>V29b · Sincronización manual 17L.26 · fase 1</small></div><nav id="desktopnav"></nav><div class="foot">Datos cifrados · Sin sincronización automática · Envío manual protegido experimental</div></aside><main class="main"><div class="top"><div><div class="eyebrow">Organización y seguimiento</div><div class="h1" id="title"></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="backup">Exportar copia CIFRADA</button><button class="btn" onclick="nav('onedrive17a')">OneDrive · pruebas 17A</button><button class="btn" onclick="lockV23()">Bloquear</button></div></div><div class="panel" style="border:2px solid #b45309;background:#fffbeb"><strong>VERSIÓN DE PRUEBAS SIN DATOS</strong> · Versión experimental con cifrado y modo sin conexión. OneDrive 17A: solo conexión y transferencia cifrada sin sobrescritura; verificar Microsoft Entra antes de conectar. No importes datos reales ni confidenciales. Mis pendientes funciona mediante marcado manual; la asignación personal se incorporará en V29b. Los informes CSV/PDF exportan texto legible.</div><div id="content"></div><div class="foot">Versión de prueba. Conserva una copia de seguridad de los cambios.</div></main></div><div id="mobilenav" class="mobilebar"></div><script>
+</div><div id="v23gate" style="max-width:650px;margin:8vh auto;padding:20px"><div class="panel"><h1>Tareas de Gobierno · V29b</h1><p>Prueba cifrada con Fusión local + modo sin conexión · Solo datos inventados</p><div id="v23form"></div><div id="v17l81-setup" style="border:2px solid #8c5d00;padding:14px;margin-top:14px"><strong>17L.81 · Preparar Edge para recibir una baja (SOLO LOCAL)</strong><p>Usa exclusivamente el respaldo cifrado del sandbox anterior a la baja. Crea en Edge una copia inicial y su referencia original. No conecta ni escribe en OneDrive. No usar con datos reales.</p><label>Respaldo sandbox anterior a la baja</label><input id="v17l81-file" type="file" accept=".json,application/json"><label>Contraseña de ese respaldo</label><input id="v17l81-password" type="password" autocomplete="off"><button class="btn" id="v17l81-start" onclick="v17l81InitializeEdge()">Preparar Edge 17L.81 (sin OneDrive)</button><div id="v17l81-result" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:10px" aria-live="polite">Todavía no se ha ejecutado.</div></div><p id="v23msg" style="color:#a12631"></p></div></div><div class="shell"><aside class="side"><div class="brand">Tareas de Gobierno<small>V29b · Sincronización manual 17L.26 · fase 1</small></div><nav id="desktopnav"></nav><div class="foot">Datos cifrados · Sin sincronización automática · Envío manual protegido experimental</div></aside><main class="main"><div class="top"><div><div class="eyebrow">Organización y seguimiento</div><div class="h1" id="title"></div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="backup">Exportar copia CIFRADA</button><button class="btn" onclick="nav('onedrive17a')">OneDrive · pruebas 17A</button><button class="btn" onclick="lockV23()">Bloquear</button></div></div><div class="panel" style="border:2px solid #b45309;background:#fffbeb"><strong>VERSIÓN DE PRUEBAS SIN DATOS</strong> · Versión experimental con cifrado y modo sin conexión. OneDrive 17A: solo conexión y transferencia cifrada sin sobrescritura; verificar Microsoft Entra antes de conectar. No importes datos reales ni confidenciales. Mis pendientes funciona mediante marcado manual; la asignación personal se incorporará en V29b. Los informes CSV/PDF exportan texto legible.</div><div id="content"></div><div class="foot">Versión de prueba. Conserva una copia de seguridad de los cambios.</div></main></div><div id="mobilenav" class="mobilebar"></div><script>
 const INITIAL={"Equipo_Miembros_Join":[],"Proyectos_Tareas_join":[],"Miembros":[],"Tareas":[],"To_Dos":[],"Instancias":[],"Asignaciones":[],"Tareas_Equipos_Join":[],"Cargos":[],"Equipos":[],"Proyectos":[]};
 const KEY='gobierno_sandbox_17l74_encrypted_test_only';let db=structuredClone(INITIAL);db.Notas_Seguimiento=[];
 const PRIORITIES=[['corresponsabilidad','Corresponsabilidad y liderazgo compartido'],['consagracion','Consagración gozosa y profética'],['eclesialidad','Eclesialidad y comunión'],['sostenibilidad','Sostenibilidad humana y económica']];
@@ -881,6 +881,7 @@ async function v24Fetch(path,method='GET',body=null,headers={}){
  const verb=String(method).toUpperCase();
  if(path!==V24_META&&path!==V24_CONTENT)throw Error('SANDBOX 17L.75: ruta remota no permitida.');
  if(verb!=='GET'){
+  throw Error('17L.81: todas las escrituras remotas bloqueadas durante preparación de Edge.');
   const authorization=headers['X-Sandbox-17L80-Authorization'];
   if(authorization!=='BAJA_UNICA_SANDBOX_17L80')throw Error('SANDBOX 17L.80: escritura remota bloqueada; solo se autoriza la baja única protegida.');
   headers={...headers};delete headers['X-Sandbox-17L80-Authorization'];
@@ -4986,6 +4987,48 @@ async function v17l73SendDeletion(){
   say('BLOQUEADO O NO VERIFICADO: '+(e?.message||String(e)));
   say(attempted?'SE INTENTÓ ESCRIBIR: NO REPETIR sin auditoría.':'NO se inició escritura a OneDrive.');
  }finally{v17l73Busy=false;btn.disabled=false;}
+}
+
+// 17L.81: one-time, Edge-only local setup from encrypted pre-deletion sandbox backup.
+let v17l81Busy=false;
+async function v17l81InitializeEdge(){
+ const out=document.getElementById('v17l81-result'),btn=document.getElementById('v17l81-start');
+ if(v17l81Busy)return;v17l81Busy=true;btn.disabled=true;
+ const say=t=>out.textContent+='\n'+t;
+ out.textContent='17L.81 · Verificando respaldo cifrado anterior a la baja (SOLO LOCAL)…';
+ try{
+  await saveQueue;
+  if(V24_REMOTE!=='Tareas_Gobierno_SANDBOX_17L74_NO_PRODUCCION.json'||KEY!=='gobierno_sandbox_17l74_encrypted_test_only'||V17L48_BASELINE!=='gobierno_sandbox_17l74_common_reference_encrypted')throw Error('No es la configuración sandbox esperada.');
+  if(localStorage.getItem(KEY)||localStorage.getItem(V17L48_BASELINE)||v23Key)throw Error('Este navegador ya tiene datos o referencia. No se sobrescribe nada.');
+  const file=document.getElementById('v17l81-file').files?.[0],pass=document.getElementById('v17l81-password').value;
+  if(!file||!file.name.startsWith('Respaldo_OneDrive_ANTES_BAJA_17L80_')||!file.name.endsWith('_CIFRADO.json'))throw Error('Selecciona el respaldo cifrado anterior a la baja 17L.80.');
+  if(!pass)throw Error('Introduce la contraseña del respaldo.');
+  const raw=await file.text();if(raw.length>20000000)throw Error('Archivo demasiado grande.');
+  const env=validateV23(JSON.parse(raw)),salt=v23Unb64(env.salt),key=await v23Derive(pass,salt);
+  const original=await v23Open(env,key);
+  if(v17eAnalyze(original).issues.length)throw Error('El respaldo no supera la verificación de integridad.');
+  if(original.Proyectos.length!==1||original.Proyectos.some(p=>String(p.Proyecto_ID)!=='1'))throw Error('El respaldo no contiene el proyecto sandbox ID 1 esperado.');
+  let other=0;for(const [table] of Object.entries(V26_TABLES))if(table!=='Proyectos')other+=original[table].length;
+  if(other!==0)throw Error('El respaldo contiene '+other+' registros adicionales; no es la prueba aislada esperada.');
+  const hash=await v24Hash(raw);
+  const originalETag='"{205E7C38-C701-4DE9-B4C9-C9BFCD72E2E7},1"';
+  const baseline={...structuredClone(original),_v17l48_reference:{version:'17L.48a',remoteHash:hash,etag:originalETag,createdAt:new Date().toISOString()}};
+  const sealedBaseline=JSON.stringify(await v23Seal(baseline,key,salt));
+  const checked=await v23Open(validateV23(JSON.parse(sealedBaseline)),key);
+  if(checked._v17l48_reference?.etag!==originalETag||checked.Proyectos.length!==1)throw Error('La referencia cifrada no supera la autoverificación.');
+  if(localStorage.getItem(KEY)||localStorage.getItem(V17L48_BASELINE))throw Error('Se han creado datos en este navegador durante la comprobación.');
+  if(!confirm('17L.81 · PREPARAR EDGE SANDBOX\n\nSe guardarán SOLO EN ESTE NAVEGADOR una copia cifrada del proyecto de prueba original y su referencia cifrada.\n\nNo se modifica OneDrive ni Chrome. ¿Continuar?')){say('CANCELADO.');return;}
+  try{
+   localStorage.setItem(KEY,raw);
+   localStorage.setItem(V17L48_BASELINE,sealedBaseline);
+   if(localStorage.getItem(KEY)!==raw||localStorage.getItem(V17L48_BASELINE)!==sealedBaseline)throw Error('No se pudo verificar almacenamiento local.');
+  }catch(e){localStorage.removeItem(KEY);localStorage.removeItem(V17L48_BASELINE);throw e;}
+  document.getElementById('v17l81-password').value='';
+  say('EDGE PREPARADO: proyecto original ID 1 y referencia anterior a la baja, cifrados y verificados.');
+  say('ONEDRIVE NO MODIFICADO. No se ha recibido aún la eliminación.');
+  say('Recarga esta página y desbloquea con la contraseña del respaldo.');
+ }catch(e){say('DETENIDO: '+(e?.message||String(e)));say('No se escribió en OneDrive.');}
+ finally{v17l81Busy=false;btn.disabled=false;}
 }
 
 // 17L.80: sandbox-only, explicitly armed, one-record deletion sender.
