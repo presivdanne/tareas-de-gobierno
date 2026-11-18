@@ -4993,7 +4993,7 @@ let v17l80Busy=false;
 async function v17l80SendSandboxDeletion(){
  const out=document.getElementById('v17l80-out'),btn=document.getElementById('v17l80-send');
  if(!out||!btn||v17l80Busy)return;
- v17l80Busy=true;btn.disabled=true;out.textContent='17L.80 · Prevalidando baja única protegida…';
+ v17l80Busy=true;btn.disabled=true;out.textContent='17L.80b · Prevalidando baja única protegida…';
  const say=s=>out.textContent+='\n'+s;
  let attempted=false;
  const eq=(a,b)=>JSON.stringify(v26Sort(a))===JSON.stringify(v26Sort(b));
@@ -5019,7 +5019,7 @@ async function v17l80SendSandboxDeletion(){
   const env=validateV23(JSON.parse(remoteRaw));
   const remoteKey=await v23Derive(pass,v23Unb64(env.salt));
   const remote=await v23Open(env,remoteKey);
-  if(v17eAnalyze(remote).issues.length||v2410OpenMatches(remote).length)
+  if(v17eAnalyze(remote).issues.length)
    throw Error('Integridad OneDrive no válida.');
   if(!eq(base._v17l49_deletions,local._v17l49_deletions)||
      !eq(base._v17l49_deletions,remote._v17l49_deletions))
