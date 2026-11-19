@@ -10667,8 +10667,108 @@ async function v17l89Preview(){
  }catch(e){out.textContent='17L.89 · DETENIDO: '+(e?.message||String(e))+'\nSin escrituras.';}
  finally{v17l89Busy=false;btn.disabled=false;}
 }
+// 17L.90: protected single-project addition, sandbox ONLY. No generic merge.
+let v17l90Busy=false;
+async function v17l90SendProject(){
+ const out=document.getElementById('v17l90-out'),btn=document.getElementById('v17l90-send');
+ if(!out||!btn||v17l90Busy)return;
+ v17l90Busy=true;btn.disabled=true;out.textContent='17L.90 · Comprobando alta de proyecto (SANDBOX)…';
+ const say=s=>out.textContent+='\n'+s;
+ const eq=(a,b)=>JSON.stringify(v26Sort(a))===JSON.stringify(v26Sort(b));
+ let attempted=false;
+ try{
+  await saveQueue;
+  if(!v23Key||!v23Salt)throw Error('Desbloquea primero la base local.');
+  if(V24_REMOTE!=='Tareas_Gobierno_SANDBOX_17L74_NO_PRODUCCION.json'||V17L48_BASELINE!=='gobierno_sandbox_17l74_common_reference_encrypted')
+   throw Error('La configuración no corresponde al sandbox aislado.');
+  if(!v17l75Armed)throw Error('Activa primero «Habilitar PUT solo al archivo sandbox» en la franja amarilla.');
+  const localRaw=localStorage.getItem(KEY),baseRaw=localStorage.getItem(V17L48_BASELINE);
+  if(!localRaw||!baseRaw)throw Error('Falta base local o referencia cifrada.');
+  const base=await v23Open(validateV23(JSON.parse(baseRaw)),v23Key);
+  const local=await v23Open(validateV23(JSON.parse(localRaw)),v23Key);
+  if(base._v17l48_reference?.version!=='17L.48a'||!base._v17l48_reference?.etag)throw Error('Referencia no reconocida.');
+  if(v17eAnalyze(base).issues.length||v17eAnalyze(local).issues.length)throw Error('Integridad local o referencia inválida.');
+  const meta=await v24Meta();if(!meta?.eTag||meta.eTag!==base._v17l48_reference.etag)
+   throw Error('OneDrive cambió desde la referencia. No enviar.');
+  const remoteRaw=await v17lRemoteContent(meta),remoteHash=await v24Hash(remoteRaw);
+  const pass=prompt('17L.90: contraseña de OneDrive para comprobar el alta de proyecto:');
+  if(pass===null){say('CANCELADO.');return;}
+  const env=validateV23(JSON.parse(remoteRaw)),salt=v23Unb64(env.salt),remoteKey=await v23Derive(pass,salt);
+  const remote=await v23Open(env,remoteKey);
+  if(v17eAnalyze(remote).issues.length)throw Error('Integridad OneDrive inválida.');
+  if(!eq(base._v17l49_deletions,local._v17l49_deletions)||!eq(base._v17l49_deletions,remote._v17l49_deletions))
+   throw Error('Marcadores de eliminación diferentes.');
+  let added=null,previous=0;
+  for(const [table,pk] of Object.entries(V26_TABLES)){
+   if(![base,local,remote].every(db=>Array.isArray(db[table])))throw Error('Tabla ausente: '+table);
+   const bm=new Map(base[table].map(x=>[String(x[pk]),v17l29Comparable(table,x)]));
+   const lm=new Map(local[table].map(x=>[String(x[pk]),v17l29Comparable(table,x)]));
+   const rm=new Map(remote[table].map(x=>[String(x[pk]),v17l29Comparable(table,x)]));
+   if(bm.size!==base[table].length||lm.size!==local[table].length||rm.size!==remote[table].length)throw Error('ID duplicado: '+table);
+   if(rm.size!==bm.size)throw Error('OneDrive tiene altas/bajas no esperadas: '+table);
+   for(const [id,b] of bm){
+    if(!lm.has(id)||!rm.has(id)||!eq(b,lm.get(id))||!eq(b,rm.get(id)))
+     throw Error('Registro previo cambiado o ausente: '+table+' ID '+id);
+    previous++;
+   }
+   for(const [id,row] of lm){if(bm.has(id))continue;
+    if(table!=='Proyectos'||added)throw Error('Solo se permite un proyecto nuevo sin otros cambios.');
+    added=structuredClone(local[table].find(x=>String(x[pk])===id));
+   }
+  }
+  if(!added){say('SIN ALTAS PENDIENTES. No hay nada que enviar.');return;}
+  const pk=V26_TABLES.Proyectos,id=String(added[pk]);
+  const candidate=structuredClone(remote);candidate.Proyectos.push(added);
+  if(v17eAnalyze(candidate).issues.length)throw Error('Candidato inválido: '+v17eAnalyze(candidate).issues[0]);
+  for(const [table,tablePk] of Object.entries(V26_TABLES)){
+   const norm=rows=>rows.map(x=>v17l29Comparable(table,x)).sort((a,b)=>String(a[tablePk]).localeCompare(String(b[tablePk])));
+   if(!eq(norm(candidate[table]),norm(local[table])))throw Error('Candidato distinto del local: '+table);
+  }
+  const stable=async()=>{
+   await saveQueue;const m=await v24Meta();
+   if(localStorage.getItem(KEY)!==localRaw||localStorage.getItem(V17L48_BASELINE)!==baseRaw||m?.eTag!==meta.eTag||
+      await v24Hash(await v17lRemoteContent(m))!==remoteHash)throw Error('Datos cambiaron durante la autorización. Detenido.');
+  };
+  await stable();
+  say('PREVALIDACIÓN SUPERADA: solo Proyectos ID '+id+'; '+previous+' registros anteriores intactos.');
+  say('Candidato íntegro; ETag original '+meta.eTag+'. No se ha escrito todavía.');
+  if(!confirm('17L.90 · ALTA ÚNICA SANDBOX\n\nEnviar solo Proyectos ID '+id+' a OneDrive de pruebas.\n¿Preparar respaldo cifrado previo?')){say('CANCELADO.');return;}
+  if(prompt('Escribe exactamente ENVIAR PROYECTO 90 para preparar el respaldo:')!=='ENVIAR PROYECTO 90'){
+   say('CANCELADO: autorización incorrecta.');return;
+  }
+  await stable();
+  const filename='Respaldo_OneDrive_ANTES_17L90_'+remoteHash.slice(0,12)+'_CIFRADO.json';
+  const url=URL.createObjectURL(new Blob([remoteRaw],{type:'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),20000);
+  say('DESCARGA INICIADA: '+filename);
+  if(!confirm('Comprueba que el respaldo CIFRADO se guardó en Descargas.\n\n¿AUTORIZAS enviar solo el proyecto ID '+id+' al OneDrive sandbox?')){
+   say('CANCELADO. Sin escritura.');return;
+  }
+  await stable();
+  const digest=await v17jDigest(candidate);
+  const sealed=JSON.stringify(await v23Seal(candidate,remoteKey,salt));
+  const roundtrip=await v23Open(validateV23(JSON.parse(sealed)),remoteKey);
+  if(await v17jDigest(roundtrip)!==digest||v17eAnalyze(roundtrip).issues.length)throw Error('Verificación del cifrado fallida.');
+  await stable();say('Enviando con If-Match…');attempted=true;
+  const response=await v24Fetch(V24_CONTENT,'PUT',sealed,{'Content-Type':'application/json','If-Match':meta.eTag});
+  if(!response.ok)throw Error('OneDrive HTTP '+response.status+'. NO reintentar sin auditoría.');
+  const updatedMeta=await v24Meta(),updatedRaw=await v17lRemoteContent(updatedMeta);
+  const updatedEnv=validateV23(JSON.parse(updatedRaw));
+  const verified=await v23Open(updatedEnv,await v23Derive(pass,v23Unb64(updatedEnv.salt)));
+  if(v17eAnalyze(verified).issues.length||await v17jDigest(verified)!==digest)
+   throw Error('Resultado remoto no verificable. NO reintentar.');
+  if(localStorage.getItem(KEY)!==localRaw||localStorage.getItem(V17L48_BASELINE)!==baseRaw)
+   throw Error('Cambio local inesperado. Auditar antes de continuar.');
+  say('ENVÍO 17L.90 VERIFICADO: proyecto ID '+id+' añadido a OneDrive sandbox.');
+  say('ETag nuevo: '+updatedMeta.eTag+'. Referencia local NO renovada; Edge NO modificado.');
+  say('NO REPITAS EL ENVÍO. Próximo paso: comprobar la recepción en Edge.');
+ }catch(e){say('BLOQUEADO O NO VERIFICADO: '+(e?.message||String(e)));
+  say(attempted?'SE INTENTÓ ESCRIBIR: NO REINTENTAR sin auditoría.':'NO se inició escritura a OneDrive.');
+ }finally{v17l90Busy=false;btn.disabled=false;}
+}
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.89 · Centro de sincronización (SANDBOX)</h2>
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.90 · Centro de sincronización (SANDBOX)</h2>
 <p>Interfaz integrada en pruebas. Trabaja exclusivamente con la base ficticia y el archivo OneDrive sandbox; no utilices datos reales.</p>
 <div class="panel" style="border:2px solid #397c9b;margin:16px 0;padding:18px">
 <h3>Sincronización guiada</h3>
@@ -10679,10 +10779,13 @@ function v17l26Panel(){
 <p><strong>3. Vista previa general</strong> — Simula altas, ediciones, bajas y conflictos de las 12 tablas, sin modificar datos. Una vista previa válida NO autoriza la escritura.</p>
 <button class="btn primary" id="v17l89-preview" onclick="v17l89Preview()">Preparar plan general (solo lectura)</button>
 <div id="v17l89-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Aún no se ha preparado ningún plan.</div>
-<p><strong>4. Sincronizar con autorización</strong> — Acciones protegidas de prueba. Solo permiten UNA baja aislada; no sincronizan altas, ediciones ni conflictos. Cada operación vuelve a comprobar los datos, exige sus propias confirmaciones y puede solicitar respaldo cifrado.</p>
+<p><strong>4. Enviar un proyecto nuevo (17L.90 · sandbox)</strong> — Solo admite exactamente un proyecto local nuevo, con OneDrive idéntico a la referencia y sin otras diferencias. Requiere respaldo cifrado y doble autorización. No recibe en Edge ni renueva referencias.</p>
+<button class="btn primary" id="v17l90-send" onclick="v17l90SendProject()">Prevalidar y enviar proyecto único (protegido)</button>
+<div id="v17l90-out" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Sin ejecutar. No se ha escrito en OneDrive.</div>
+<p><strong>5. Sincronizar con autorización</strong> — Acciones protegidas de prueba. Solo permiten UNA baja aislada; no sincronizan altas, ediciones ni conflictos. Cada operación vuelve a comprobar los datos, exige sus propias confirmaciones y puede solicitar respaldo cifrado.</p>
 <button class="btn" id="v17l87-send" onclick="v17l87Protected('send')">Enviar una baja local protegida (SANDBOX)</button>
 <button class="btn" id="v17l87-receive" onclick="v17l87Protected('receive')">Recibir una baja remota protegida (SANDBOX)</button>
-<p><strong>5. Verificar estado</strong> — Comprobar las tres copias y la referencia sin renovar ni sobrescribir respaldos. No escribe en el navegador ni en OneDrive.</p>
+<p><strong>6. Verificar estado</strong> — Comprobar las tres copias y la referencia sin renovar ni sobrescribir respaldos. No escribe en el navegador ni en OneDrive.</p>
 <button class="btn" id="v17l87-renew" onclick="v17l88Verify()">Verificar estado (solo lectura)</button>
 <div id="v17l87-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Las operaciones protegidas mostrarán aquí sus resultados. No se ha iniciado ninguna.</div>
 <p id="v17l84-status" style="font-size:0.92em;color:#345">Ninguna operación de sincronización iniciada desde este panel.</p>
