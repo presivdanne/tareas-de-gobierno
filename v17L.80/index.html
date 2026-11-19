@@ -10560,6 +10560,59 @@ function v17l86Review(){
   }).finally(()=>{if(action)action.disabled=false;});
  }catch(err){destination.textContent='Error al revisar: '+(err?.message||String(err));if(action)action.disabled=false;}
 }
+// 17L.88: read-only verification. Never renew a reference during a status check.
+let v17l88Busy=false;
+async function v17l88Verify(){
+ const out=document.getElementById('v17l87-result'),btn=document.getElementById('v17l87-renew');
+ if(!out||!btn||v17l88Busy)return;
+ v17l88Busy=true;btn.disabled=true;
+ const lines=['17L.88 · VERIFICACIÓN DE SINCRONIZACIÓN · SOLO LECTURA'];
+ const say=x=>{lines.push(x);out.textContent=lines.join('\n');};
+ out.textContent=lines[0];
+ try{
+  await saveQueue;
+  if(!v23Key)throw Error('Desbloquea la base local sandbox.');
+  if(V24_REMOTE!=='Tareas_Gobierno_SANDBOX_17L74_NO_PRODUCCION.json'||V17L48_BASELINE!=='gobierno_sandbox_17l74_common_reference_encrypted')throw Error('Configuración distinta del sandbox autorizado.');
+  const rawLocal=localStorage.getItem(KEY),rawBase=localStorage.getItem(V17L48_BASELINE);
+  if(!rawLocal||!rawBase)throw Error('Falta base local o referencia. No se puede confirmar el estado.');
+  const local=await v23Open(validateV23(JSON.parse(rawLocal)),v23Key);
+  const base=await v23Open(validateV23(JSON.parse(rawBase)),v23Key);
+  if(base._v17l48_reference?.version!=='17L.48a')throw Error('Referencia no reconocida.');
+  if(v17eAnalyze(local).issues.length||v17eAnalyze(base).issues.length)throw Error('Integridad local o referencia inválida.');
+  const meta=await v24Meta();if(!meta?.eTag)throw Error('OneDrive sandbox no accesible.');
+  const remoteRaw=await v17lRemoteContent(meta),remoteHash=await v24Hash(remoteRaw);
+  const pass=prompt('17L.88: contraseña del OneDrive sandbox (solo lectura):');
+  if(pass===null){say('CANCELADO. No se modificó nada.');return;}
+  const env=validateV23(JSON.parse(remoteRaw));
+  const remote=await v23Open(env,await v23Derive(pass,v23Unb64(env.salt)));
+  if(v17eAnalyze(remote).issues.length)throw Error('Integridad OneDrive inválida.');
+  const eq=(a,b)=>JSON.stringify(v26Sort(a))===JSON.stringify(v26Sort(b));
+  const equalTables=(a,b)=>Object.entries(V26_TABLES).every(([table,pk])=>{
+   if(!Array.isArray(a[table])||!Array.isArray(b[table]))return false;
+   const norm=rows=>rows.map(r=>v17l29Comparable(table,r)).sort((x,y)=>String(x[pk]).localeCompare(String(y[pk])));
+   return eq(norm(a[table]),norm(b[table]));
+  });
+  const equalData=equalTables(local,remote)&&eq(local._v17l49_deletions,remote._v17l49_deletions);
+  const referenceCurrent=base._v17l48_reference.etag===meta.eTag&&base._v17l48_reference.remoteHash===remoteHash;
+  const localMatchesReference=equalTables(local,base)&&eq(local._v17l49_deletions,base._v17l49_deletions);
+  const remoteMatchesReference=equalTables(remote,base)&&eq(remote._v17l49_deletions,base._v17l49_deletions);
+  await saveQueue;
+  const latest=await v24Meta();
+  if(localStorage.getItem(KEY)!==rawLocal||localStorage.getItem(V17L48_BASELINE)!==rawBase||latest?.eTag!==meta.eTag||await v24Hash(await v17lRemoteContent(latest))!==remoteHash)throw Error('Las copias cambiaron durante la verificación. Vuelve a comprobar.');
+  say('Integridad de las tres copias: VÁLIDA.');
+  say('Coincidencia local / OneDrive (12 tablas y marcadores de bajas): '+(equalData?'SÍ':'NO'));
+  say('Referencia actual (ETag y huella cifrada): '+(referenceCurrent?'SÍ':'NO'));
+  say('Local coincide con referencia: '+(localMatchesReference?'SÍ':'NO'));
+  say('OneDrive coincide con referencia: '+(remoteMatchesReference?'SÍ':'NO'));
+  if(equalData&&referenceCurrent&&localMatchesReference&&remoteMatchesReference){
+   say('TODO AL DÍA. No es necesario sincronizar ni renovar la referencia.');
+  }else{
+   say('REVISIÓN NECESARIA. No se ha renovado la referencia. Usa Comprobar cambios antes de cualquier operación protegida.');
+  }
+ }catch(e){say('VERIFICACIÓN NO COMPLETADA: '+(e?.message||String(e)));}
+ finally{say('SOLO LECTURA: no se modificaron datos, referencias, respaldos ni OneDrive.');v17l88Busy=false;btn.disabled=false;}
+}
+
 // 17L.87: bring existing protected, sandbox-only operations into the guided centre.
 // These are explicit user clicks; all existing validations and confirmations remain in force.
 let v17l87Observer=null;
@@ -10588,7 +10641,7 @@ function v17l84Go(target){
  if(status)status.textContent='Control localizado. Lee su descripción antes de ejecutarlo; no se ha modificado ningún dato.';
 }
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.87 · Centro de sincronización (SANDBOX)</h2>
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.88 · Centro de sincronización (SANDBOX)</h2>
 <p>Interfaz integrada en pruebas. Trabaja exclusivamente con la base ficticia y el archivo OneDrive sandbox; no utilices datos reales.</p>
 <div class="panel" style="border:2px solid #397c9b;margin:16px 0;padding:18px">
 <h3>Sincronización guiada</h3>
@@ -10599,8 +10652,8 @@ function v17l26Panel(){
 <p><strong>3. Sincronizar con autorización</strong> — Acciones protegidas de prueba. Solo permiten UNA baja aislada; no sincronizan altas, ediciones ni conflictos. Cada operación vuelve a comprobar los datos, exige sus propias confirmaciones y puede solicitar respaldo cifrado.</p>
 <button class="btn" id="v17l87-send" onclick="v17l87Protected('send')">Enviar una baja local protegida (SANDBOX)</button>
 <button class="btn" id="v17l87-receive" onclick="v17l87Protected('receive')">Recibir una baja remota protegida (SANDBOX)</button>
-<p><strong>4. Verificar y renovar</strong> — Renovar referencia cifrada SOLO en este navegador, después de verificar que las 12 tablas coinciden con OneDrive. No escribe en OneDrive.</p>
-<button class="btn" id="v17l87-renew" onclick="v17l87Protected('renew')">Verificar y renovar referencia local</button>
+<p><strong>4. Verificar estado</strong> — Comprobar las tres copias y la referencia sin renovar ni sobrescribir respaldos. No escribe en el navegador ni en OneDrive.</p>
+<button class="btn" id="v17l87-renew" onclick="v17l88Verify()">Verificar estado (solo lectura)</button>
 <div id="v17l87-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Las operaciones protegidas mostrarán aquí sus resultados. No se ha iniciado ninguna.</div>
 <p id="v17l84-status" style="font-size:0.92em;color:#345">Ninguna operación de sincronización iniciada desde este panel.</p>
 </div>
