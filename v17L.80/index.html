@@ -10537,6 +10537,29 @@ function v17l85Check(){
   update();if(action)action.disabled=false;
  }).catch(()=>{});}catch(err){destination.textContent='Error de comprobación: '+err.message;if(action)action.disabled=false;}
 }
+// 17L.86: show dependency review directly in the guided panel; read-only.
+let v17l86ReviewMirror=null;
+function v17l86Review(){
+ const source=document.getElementById('v17l71-out');
+ const destination=document.getElementById('v17l86-review-result');
+ const original=document.getElementById('v17l71-audit');
+ const action=document.getElementById('v17l86-review');
+ if(!source||!destination||!original){
+  if(destination)destination.textContent='No se encontró el informe de dependencias. No se modificaron datos.';
+  return;
+ }
+ if(v17l86ReviewMirror){v17l86ReviewMirror.disconnect();v17l86ReviewMirror=null;}
+ const update=()=>{destination.textContent=source.textContent||'Esperando informe…';};
+ v17l86ReviewMirror=new MutationObserver(update);
+ v17l86ReviewMirror.observe(source,{childList:true,characterData:true,subtree:true});
+ destination.textContent='Revisando bajas y dependencias (solo lectura)…';
+ if(action)action.disabled=true;
+ try{
+  Promise.resolve(v17l71DeletionAudit()).then(update,err=>{
+   destination.textContent='Error al revisar: '+(err?.message||String(err));
+  }).finally(()=>{if(action)action.disabled=false;});
+ }catch(err){destination.textContent='Error al revisar: '+(err?.message||String(err));if(action)action.disabled=false;}
+}
 function v17l84Go(target){
  const el=document.getElementById(target),status=document.getElementById('v17l84-status');
  if(!el){if(status)status.textContent='Control no disponible; no se ha realizado ningún cambio.';return;}
@@ -10545,14 +10568,14 @@ function v17l84Go(target){
  if(status)status.textContent='Control localizado. Lee su descripción antes de ejecutarlo; no se ha modificado ningún dato.';
 }
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.85 · Centro de sincronización (SANDBOX)</h2>
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.86 · Centro de sincronización (SANDBOX)</h2>
 <p>Interfaz integrada en pruebas. Trabaja exclusivamente con la base ficticia y el archivo OneDrive sandbox; no utilices datos reales.</p>
 <div class="panel" style="border:2px solid #397c9b;margin:16px 0;padding:18px">
 <h3>Sincronización guiada</h3>
 <p><strong>1. Comprobar</strong> — Analiza diferencias antes de permitir cambios.</p>
 <button class="btn primary" id="v17l85-check" onclick="v17l85Check()">Comprobar cambios (solo lectura)</button><div id="v17l85-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Pulsa Comprobar cambios para ver el resultado aquí, sin desplazarte por la página.</div>
 <p><strong>2. Revisar</strong> — Examina el diagnóstico y las dependencias. Los conflictos no se resuelven automáticamente.</p>
-<button class="btn" onclick="v17l84Go('v17l72-check')">Revisar dependencias</button>
+<button class="btn" id="v17l86-review" onclick="v17l86Review()">Revisar dependencias (solo lectura)</button><div id="v17l86-review-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Pulsa Revisar dependencias para ver el informe aquí.</div>
 <p><strong>3. Aplicar con autorización</strong> — En esta versión las operaciones protegidas siguen separadas: enviar una baja sandbox o recibirla solo localmente. No se ejecutan al pulsar aquí.</p>
 <button class="btn" onclick="v17l84Go('v17l82-receive')">Ir a recepción protegida</button>
 <p><strong>4. Verificar y renovar</strong> — Solo si local y OneDrive coinciden. Renovación de referencia exclusivamente local.</p>
