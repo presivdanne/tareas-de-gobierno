@@ -10907,8 +10907,144 @@ async function v17l91ReceiveProject(){
  }finally{v17l91Busy=false;btn.disabled=false;}
 }
 
+
+// 17L.92: renew a sandbox reference after verified Chrome -> OneDrive -> Edge addition.
+// Preserve all older backups. This operation NEVER writes OneDrive or the local database.
+let v17l92Busy=false;
+async function v17l92RenewReference(){
+ const out=document.getElementById('v17l92-out'),btn=document.getElementById('v17l92-renew');
+ if(!out||!btn||v17l92Busy)return;
+ v17l92Busy=true;btn.disabled=true;
+ out.textContent='17L.92 · COMPROBAR REFERENCIA DESPUÉS DE ALTA (SOLO SANDBOX)…';
+ const say=x=>out.textContent+='\n'+x;
+ const eq=(a,b)=>JSON.stringify(v26Sort(a))===JSON.stringify(v26Sort(b));
+ const norm=(database,table,pk)=>database[table].map(row=>v17l29Comparable(table,row))
+   .sort((a,b)=>String(a[pk]).localeCompare(String(b[pk])));
+ let wroteReference=false;
+ try{
+  await saveQueue;
+  if(!v23Key||!v23Salt)throw Error('Desbloquea primero la base local sandbox.');
+  if(KEY!=='gobierno_sandbox_17l74_encrypted_test_only'||
+     V24_REMOTE!=='Tareas_Gobierno_SANDBOX_17L74_NO_PRODUCCION.json'||
+     V17L48_BASELINE!=='gobierno_sandbox_17l74_common_reference_encrypted')
+   throw Error('Configuración no corresponde al sandbox aislado.');
+  const localRaw=localStorage.getItem(KEY),oldRaw=localStorage.getItem(V17L48_BASELINE);
+  if(!localRaw||!oldRaw)throw Error('Falta copia local o referencia cifrada.');
+  const local=await v23Open(validateV23(JSON.parse(localRaw)),v23Key);
+  const old=await v23Open(validateV23(JSON.parse(oldRaw)),v23Key);
+  if(old._v17l48_reference?.version!=='17L.48a'||!old._v17l48_reference?.etag||
+     !old._v17l48_reference?.remoteHash)throw Error('Referencia anterior no reconocida.');
+  if(v17eAnalyze(local).issues.length||v17eAnalyze(old).issues.length||v2410OpenMatches(local).length)
+   throw Error('Integridad local, referencia o base abierta no válida.');
+  const meta=await v24Meta();if(!meta?.eTag)throw Error('OneDrive sandbox no disponible.');
+  const remoteRaw=await v17lRemoteContent(meta),remoteHash=await v24Hash(remoteRaw);
+  const pass=prompt('17L.92: contraseña del OneDrive SANDBOX para comprobar la referencia (solo lectura):');
+  if(pass===null){say('CANCELADO. Ningún dato modificado.');return;}
+  const env=validateV23(JSON.parse(remoteRaw));
+  const remote=await v23Open(env,await v23Derive(pass,v23Unb64(env.salt)));
+  if(v17eAnalyze(remote).issues.length)throw Error('Integridad OneDrive inválida.');
+  for(const [table,pk] of Object.entries(V26_TABLES)){
+   if(![old,local,remote].every(x=>Array.isArray(x[table])))throw Error('Falta tabla '+table);
+   if(!eq(norm(local,table,pk),norm(remote,table,pk)))
+    throw Error('Local y OneDrive NO coinciden en '+table+'. No se renueva.');
+  }
+  if(!eq(local._v17l49_deletions,remote._v17l49_deletions))
+   throw Error('Marcadores de bajas distintos entre navegador y OneDrive.');
+  const stable=async()=>{
+   await saveQueue;
+   const m=await v24Meta();
+   if(localStorage.getItem(KEY)!==localRaw||localStorage.getItem(V17L48_BASELINE)!==oldRaw||
+      m?.eTag!==meta.eTag||await v24Hash(await v17lRemoteContent(m))!==remoteHash)
+    throw Error('Las copias cambiaron durante la comprobación. No se renueva.');
+  };
+  await stable();
+  if(old._v17l48_reference.etag===meta.eTag&&old._v17l48_reference.remoteHash===remoteHash){
+   const matchesOld=Object.entries(V26_TABLES).every(([table,pk])=>eq(norm(old,table,pk),norm(local,table,pk)));
+   if(matchesOld&&eq(old._v17l49_deletions,local._v17l49_deletions)){
+    say('TODO AL DÍA: referencia y datos ya coinciden con OneDrive. Ninguna renovación necesaria.');
+    return;
+   }
+   throw Error('Referencia dice estar actualizada, pero sus registros difieren. Revisión manual.');
+  }
+  if(!eq(old._v17l49_deletions,local._v17l49_deletions))
+   throw Error('Cambios en marcadores de bajas frente a referencia. No se renueva.');
+  // Restrict this build to the ONE already verified fictional project addition.
+  const pk=V26_TABLES.Proyectos;
+  const oldProjects=new Map(old.Proyectos.map(r=>[String(r[pk]),v17l29Comparable('Proyectos',r)]));
+  const newProjects=new Map(local.Proyectos.map(r=>[String(r[pk]),v17l29Comparable('Proyectos',r)]));
+  if(oldProjects.size!==old.Proyectos.length||newProjects.size!==local.Proyectos.length||
+     newProjects.size!==oldProjects.size+1||oldProjects.has('1')||
+     newProjects.get('1')?.Proyecto!=='Prueba sincronización 17L.90')
+   throw Error('No es exactamente el alta ficticia esperada (Proyecto ID 1).');
+  for(const [id,row] of oldProjects){
+   if(!newProjects.has(id)||!eq(row,newProjects.get(id)))
+    throw Error('El proyecto anterior ID '+id+' cambió. No se renueva.');
+  }
+  for(const id of newProjects.keys())if(!oldProjects.has(id)&&id!=='1')
+   throw Error('Alta adicional no autorizada: proyecto '+id);
+  for(const [table,tablePk] of Object.entries(V26_TABLES)){
+   if(table==='Proyectos')continue;
+   if(!eq(norm(old,table,tablePk),norm(local,table,tablePk)))
+    throw Error('Cambio adicional frente a referencia: '+table+'. No se renueva.');
+  }
+  say('COINCIDENCIA CONFIRMADA: Chrome/Edge local y OneDrive coinciden en 12 tablas.');
+  say('Única diferencia con referencia anterior: alta de Proyecto ID 1.');
+  say('ETag anterior: '+old._v17l48_reference.etag+' · ETag nuevo: '+meta.eTag);
+  say('Solo se actualizará la referencia de ESTE navegador; no se escribirá en OneDrive ni en la base local.');
+  if(!confirm('17L.92 · SANDBOX\n\nLos datos locales coinciden con OneDrive.\n¿Preparar un respaldo CIFRADO de la referencia anterior antes de renovarla SOLO en este navegador?')){
+   say('CANCELADO. Ningún dato modificado.');return;
+  }
+  const snap={...structuredClone(local),_v17l48_reference:{version:'17L.48a',remoteHash:remoteHash,etag:meta.eTag,createdAt:new Date().toISOString()}};
+  const sealed=JSON.stringify(await v23Seal(snap,v23Key,v23Salt));
+  const check=await v23Open(validateV23(JSON.parse(sealed)),v23Key);
+  if(v17eAnalyze(check).issues.length||check._v17l48_reference?.etag!==meta.eTag||
+     check._v17l48_reference?.remoteHash!==remoteHash||
+     !eq(check._v17l49_deletions,local._v17l49_deletions))
+   throw Error('No se verificó el cifrado de la nueva referencia.');
+  for(const [table,tablePk] of Object.entries(V26_TABLES))
+   if(!eq(norm(check,table,tablePk),norm(local,table,tablePk)))
+    throw Error('La nueva referencia cifrada no conserva '+table+'.');
+  await stable();
+  const oldHash=await v24Hash(oldRaw);
+  const backupKey='gobierno_sandbox_17l92_ref_backup_'+oldHash.slice(0,24)+'_encrypted';
+  const prior=localStorage.getItem(backupKey);
+  if(prior!==null&&prior!==oldRaw)
+   throw Error('Existe un respaldo con la misma clave pero contenido distinto. No se sobrescribe.');
+  const filename='Respaldo_Referencia_ANTES_17L92_'+oldHash.slice(0,12)+'_CIFRADO.json';
+  const url=URL.createObjectURL(new Blob([oldRaw],{type:'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download=filename;
+  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),20000);
+  say('DESCARGA INICIADA: '+filename);
+  if(!confirm('Comprueba en Descargas que se guardó el respaldo CIFRADO de la referencia anterior.\n\n¿AUTORIZAS actualizar SOLO la referencia de ESTE navegador al ETag '+meta.eTag+'?\n\nOneDrive y la base de proyectos no se modificarán.')){
+   say('CANCELADO. Referencia sin modificar.');return;
+  }
+  await stable();
+  if(prior===null){
+   localStorage.setItem(backupKey,oldRaw);
+   if(localStorage.getItem(backupKey)!==oldRaw)throw Error('No se verificó el respaldo local.');
+  }
+  // Preserve all older 17L.83 and 17L.92 backups; replace only the current reference.
+  localStorage.setItem(V17L48_BASELINE,sealed);
+  wroteReference=true;
+  if(localStorage.getItem(V17L48_BASELINE)!==sealed)
+   throw Error('La nueva referencia no quedó guardada. No sincronices.');
+  const readback=await v23Open(validateV23(JSON.parse(localStorage.getItem(V17L48_BASELINE))),v23Key);
+  if(readback._v17l48_reference?.etag!==meta.eTag||
+     readback._v17l48_reference?.remoteHash!==remoteHash)
+   throw Error('No se verificó la referencia actualizada. No sincronices.');
+  say('REFERENCIA 17L.92 RENOVADA Y VERIFICADA SOLO EN ESTE NAVEGADOR.');
+  say('ETag: '+meta.eTag+'. Respaldo anterior preservado; OneDrive y base local intactos.');
+  say('Repite la renovación de referencia en el OTRO navegador y después ejecuta «Verificar estado (solo lectura)» en ambos.');
+ }catch(e){
+  say('BLOQUEADO O NO VERIFICADO: '+(e?.message||String(e)));
+  if(wroteReference)say('ATENCIÓN: la referencia local pudo modificarse. No reintentar sin auditar.');
+  else say('No se modificó la referencia actual.');
+  say('No se escribió en OneDrive ni en la base de proyectos.');
+ }finally{v17l92Busy=false;btn.disabled=false;}
+}
+
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.91 · Centro de sincronización (SANDBOX)</h2>
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.92 · Centro de sincronización (SANDBOX)</h2>
 <p>Interfaz integrada en pruebas. Trabaja exclusivamente con la base ficticia y el archivo OneDrive sandbox; no utilices datos reales.</p>
 <div class="panel" style="border:2px solid #397c9b;margin:16px 0;padding:18px">
 <h3>Sincronización guiada</h3>
@@ -10931,6 +11067,9 @@ function v17l26Panel(){
 <p><strong>7. Verificar estado</strong> — Comprobar las tres copias y la referencia sin renovar ni sobrescribir respaldos. No escribe en el navegador ni en OneDrive.</p>
 <button class="btn" id="v17l87-renew" onclick="v17l88Verify()">Verificar estado (solo lectura)</button>
 <div id="v17l87-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Las operaciones protegidas mostrarán aquí sus resultados. No se ha iniciado ninguna.</div>
+<p><strong>8. Renovar referencia tras el alta 17L.90/91 (17L.92 · SANDBOX)</strong> — Solo cuando el proyecto ID 1 ya está en este navegador y OneDrive, sin otras diferencias. Descarga respaldo CIFRADO y conserva las referencias anteriores sin sobrescribirlas. No escribe en OneDrive ni modifica los proyectos.</p>
+<button class="btn primary" id="v17l92-renew" onclick="v17l92RenewReference()">Comprobar y renovar referencia 17L.92 (protegido)</button>
+<div id="v17l92-out" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Sin ejecutar. Referencia sin modificar.</div>
 <p id="v17l84-status" style="font-size:0.92em;color:#345">Ninguna operación de sincronización iniciada desde este panel.</p>
 </div>
 <div class="panel" style="border:2px solid #176e9e;margin:16px 0">
@@ -10941,7 +11080,7 @@ function v17l26Panel(){
 <div class="panel" style="border:2px solid #a36a18;margin:16px 0">
 <h3>17L.72 · Informe de bajas y dependencias (SOLO LECTURA)</h3>
 <p>Examina las bajas reales y calcula el impacto de eliminar cada registro por separado. Muestra hasta cinco incidencias de relación por baja y bloquea conceptualmente las eliminaciones que dejarían datos huérfanos. Esta es una comprobación previa, sin borrados ni cascadas automáticas.</p>
-<div style="border:2px solid #386a60;padding:12px;margin:12px 0"><strong>17L.83 · Renovar referencia cifrada (solo este navegador)</strong><p>Solo después de verificar que las 12 tablas locales coinciden con OneDrive. Conserva la referencia anterior como respaldo local. No escribe en OneDrive.</p><button class="btn" id="v17l83-renew" onclick="v17l83RenewReference()">Comprobar y renovar referencia 17L.83</button><div id="v17l83-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" aria-live="polite">Sin ejecutar.</div></div><div style="border:2px solid #176e9e;padding:12px;margin:12px 0"><strong>17L.82 · Recibir baja remota SOLO en Edge (OneDrive lectura)</strong><p>Verifica una sola baja remota, la referencia, dependencias y ETag. Descarga respaldo cifrado de Edge y guarda la baja local cifrada. No escribe en OneDrive.</p><button class="btn primary" id="v17l82-receive" onclick="v17l82Receive()">Prevalidar recepción de baja única 17L.82 (Edge)</button><div id="v17l82-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" aria-live="polite">Sin ejecutar.</div></div><div style="border:2px solid #8c5d00;padding:12px;margin:12px 0"><strong>17L.80 · Enviar una baja protegida SOLO al OneDrive sandbox</strong><p>Solo permite una baja local aislada, exige referencia coincidente, integridad válida, respaldo cifrado, autorización explícita y ETag inalterado. No modifica producción ni renueva referencia.</p><button class="btn" id="v17l80-send" onclick="v17l80SendSandboxDeletion()">Prevalidar y enviar baja única 17L.80 (sandbox)</button><div id="v17l80-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" aria-live="polite">Sin ejecutar.</div></div><div style="border:2px solid #176e9e;padding:12px;margin:12px 0"><strong>17L.78 · Comprobación independiente de bajas</strong><p>Compara IDs de referencia, navegador y OneDrive. No depende de la clasificación anterior ni autoriza escrituras.</p><button class="btn primary" id="v17l78-check" onclick="v17l78Inspect()">Comprobar baja local 17L.78 (solo lectura)</button><div id="v17l78-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" aria-live="polite">Sin analizar.</div></div><button class="btn" id="v17l71-audit" onclick="v17l71DeletionAudit()">Analizar bajas y dependencias (solo lectura)</button>
+<div style="border:2px solid #386a60;padding:12px;margin:12px 0"><strong>17L.83 · Renovar referencia cifrada (solo este navegador)</strong><p>Solo después de verificar que las 12 tablas locales coinciden con OneDrive. Conserva la referencia anterior como respaldo local. No escribe en OneDrive.</p><p class="muted small">Función 17L.83 sustituida por 17L.92 en el centro de sincronización. No usar la renovación antigua.</p><div id="v17l83-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" aria-live="polite">Sin ejecutar.</div></div><div style="border:2px solid #176e9e;padding:12px;margin:12px 0"><strong>17L.82 · Recibir baja remota SOLO en Edge (OneDrive lectura)</strong><p>Verifica una sola baja remota, la referencia, dependencias y ETag. Descarga respaldo cifrado de Edge y guarda la baja local cifrada. No escribe en OneDrive.</p><button class="btn primary" id="v17l82-receive" onclick="v17l82Receive()">Prevalidar recepción de baja única 17L.82 (Edge)</button><div id="v17l82-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" aria-live="polite">Sin ejecutar.</div></div><div style="border:2px solid #8c5d00;padding:12px;margin:12px 0"><strong>17L.80 · Enviar una baja protegida SOLO al OneDrive sandbox</strong><p>Solo permite una baja local aislada, exige referencia coincidente, integridad válida, respaldo cifrado, autorización explícita y ETag inalterado. No modifica producción ni renueva referencia.</p><button class="btn" id="v17l80-send" onclick="v17l80SendSandboxDeletion()">Prevalidar y enviar baja única 17L.80 (sandbox)</button><div id="v17l80-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" aria-live="polite">Sin ejecutar.</div></div><div style="border:2px solid #176e9e;padding:12px;margin:12px 0"><strong>17L.78 · Comprobación independiente de bajas</strong><p>Compara IDs de referencia, navegador y OneDrive. No depende de la clasificación anterior ni autoriza escrituras.</p><button class="btn primary" id="v17l78-check" onclick="v17l78Inspect()">Comprobar baja local 17L.78 (solo lectura)</button><div id="v17l78-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" aria-live="polite">Sin analizar.</div></div><button class="btn" id="v17l71-audit" onclick="v17l71DeletionAudit()">Analizar bajas y dependencias (solo lectura)</button>
 <div id="v17l71-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:12px" aria-live="polite">Sin analizar.</div></div>
 <div class="panel" style="border:2px solid #16735c;margin:16px 0">
 <h3>17L.77 · Crear referencia cifrada SANDBOX</h3>
