@@ -881,16 +881,28 @@ async function v24Fetch(path,method='GET',body=null,headers={}){
  const verb=String(method).toUpperCase();
  if(path!==V24_META&&path!==V24_CONTENT)throw Error('SANDBOX 17L.75: ruta remota no permitida.');
  if(verb!=='GET'){
-  throw Error('17L.82: todas las escrituras remotas bloqueadas durante recepción en Edge.');
-  const authorization=headers['X-Sandbox-17L80-Authorization'];
-  if(authorization!=='BAJA_UNICA_SANDBOX_17L80')throw Error('SANDBOX 17L.80: escritura remota bloqueada; solo se autoriza la baja única protegida.');
-  headers={...headers};delete headers['X-Sandbox-17L80-Authorization'];
-  if(verb!=='PUT'||path!==V24_CONTENT)throw Error('SANDBOX 17L.75: operación remota bloqueada.');
-  if(!v17l75Armed)throw Error('SANDBOX 17L.75: activa manualmente escrituras de prueba.');
+  // 17L.90b: only the two individually prevalidated sandbox operations may write.
+  // The 17L.82 receiving routine remains read-only: it has no authorization token.
+  const deletionAuth=headers['X-Sandbox-17L80-Authorization'];
+  const additionAuth=headers['X-Sandbox-17L90-Authorization'];
+  const authorizedDeletion=deletionAuth==='BAJA_UNICA_SANDBOX_17L80' && !additionAuth;
+  const authorizedAddition=additionAuth==='ALTA_UNICA_PROYECTO_SANDBOX_17L90' && !deletionAuth;
+  if(!authorizedDeletion&&!authorizedAddition)
+   throw Error('17L.90b: escritura bloqueada. Solo alta única 17L.90 o baja única 17L.80, con autorización específica.');
+  if(verb!=='PUT'||path!==V24_CONTENT)throw Error('SANDBOX: solo PUT al archivo de pruebas está permitido.');
+  if(!v17l75Armed)throw Error('SANDBOX: habilita manualmente PUT solo al archivo sandbox.');
   if(V24_REMOTE!=='Tareas_Gobierno_SANDBOX_17L74_NO_PRODUCCION.json')
     throw Error('SANDBOX: nombre remoto inesperado. Escritura bloqueada.');
-  if(!confirm('SANDBOX 17L.75: ¿confirmas escribir SOLO en el archivo de prueba '+V24_REMOTE+'?'))
+  if(typeof headers['If-Match']!=='string'||!headers['If-Match'].trim()||headers['If-None-Match'])
+    throw Error('SANDBOX: falta If-Match condicional. Escritura bloqueada.');
+  if(headers['Content-Type']!=='application/json'||typeof body!=='string')
+    throw Error('SANDBOX: solo se permite contenido cifrado JSON.');
+  try{validateV23(JSON.parse(body));}catch(e){throw Error('SANDBOX: el contenido no es un respaldo cifrado válido.');}
+  if(!confirm('17L.90b · ÚLTIMA COMPROBACIÓN\n\n¿Confirmas escribir SOLO en el archivo cifrado de PRUEBAS '+V24_REMOTE+'?'))
     throw Error('Escritura de prueba cancelada.');
+  headers={...headers};
+  delete headers['X-Sandbox-17L80-Authorization'];
+  delete headers['X-Sandbox-17L90-Authorization'];
  }
  const token=await v24Token();
  return fetch('https://graph.microsoft.com/v1.0'+path,
@@ -10751,7 +10763,7 @@ async function v17l90SendProject(){
   const roundtrip=await v23Open(validateV23(JSON.parse(sealed)),remoteKey);
   if(await v17jDigest(roundtrip)!==digest||v17eAnalyze(roundtrip).issues.length)throw Error('Verificación del cifrado fallida.');
   await stable();say('Enviando con If-Match…');attempted=true;
-  const response=await v24Fetch(V24_CONTENT,'PUT',sealed,{'Content-Type':'application/json','If-Match':meta.eTag});
+  const response=await v24Fetch(V24_CONTENT,'PUT',sealed,{'Content-Type':'application/json','If-Match':meta.eTag,'X-Sandbox-17L90-Authorization':'ALTA_UNICA_PROYECTO_SANDBOX_17L90'});
   if(!response.ok)throw Error('OneDrive HTTP '+response.status+'. NO reintentar sin auditoría.');
   const updatedMeta=await v24Meta(),updatedRaw=await v17lRemoteContent(updatedMeta);
   const updatedEnv=validateV23(JSON.parse(updatedRaw));
@@ -10768,7 +10780,7 @@ async function v17l90SendProject(){
  }finally{v17l90Busy=false;btn.disabled=false;}
 }
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.90 · Centro de sincronización (SANDBOX)</h2>
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.90b · Centro de sincronización (SANDBOX)</h2>
 <p>Interfaz integrada en pruebas. Trabaja exclusivamente con la base ficticia y el archivo OneDrive sandbox; no utilices datos reales.</p>
 <div class="panel" style="border:2px solid #397c9b;margin:16px 0;padding:18px">
 <h3>Sincronización guiada</h3>
@@ -10779,7 +10791,7 @@ function v17l26Panel(){
 <p><strong>3. Vista previa general</strong> — Simula altas, ediciones, bajas y conflictos de las 12 tablas, sin modificar datos. Una vista previa válida NO autoriza la escritura.</p>
 <button class="btn primary" id="v17l89-preview" onclick="v17l89Preview()">Preparar plan general (solo lectura)</button>
 <div id="v17l89-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Aún no se ha preparado ningún plan.</div>
-<p><strong>4. Enviar un proyecto nuevo (17L.90 · sandbox)</strong> — Solo admite exactamente un proyecto local nuevo, con OneDrive idéntico a la referencia y sin otras diferencias. Requiere respaldo cifrado y doble autorización. No recibe en Edge ni renueva referencias.</p>
+<p><strong>4. Enviar un proyecto nuevo (17L.90b · sandbox)</strong> — Solo admite exactamente un proyecto local nuevo, con OneDrive idéntico a la referencia y sin otras diferencias. Requiere respaldo cifrado y doble autorización. No recibe en Edge ni renueva referencias.</p>
 <button class="btn primary" id="v17l90-send" onclick="v17l90SendProject()">Prevalidar y enviar proyecto único (protegido)</button>
 <div id="v17l90-out" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Sin ejecutar. No se ha escrito en OneDrive.</div>
 <p><strong>5. Sincronizar con autorización</strong> — Acciones protegidas de prueba. Solo permiten UNA baja aislada; no sincronizan altas, ediciones ni conflictos. Cada operación vuelve a comprobar los datos, exige sus propias confirmaciones y puede solicitar respaldo cifrado.</p>

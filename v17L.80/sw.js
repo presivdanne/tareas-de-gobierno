@@ -1,4 +1,4 @@
-const CACHE='tareas-gobierno-v29b-17L57b-general-single-text-send';
+const CACHE='tareas-gobierno-v29b-17L90b-guarded-single-project';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon.svg'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())); });
 self.addEventListener('activate', event => { event.waitUntil((async()=>{for(const key of await caches.keys()){if(key.startsWith('tareas-gobierno-v29b-')&&key!==CACHE)await caches.delete(key)}await self.clients.claim()})()); });
