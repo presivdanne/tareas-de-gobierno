@@ -10510,9 +10510,28 @@ function v17l29Comparable(table, record){
  return copy;
 }
 // 17L.26 phase 1: read-only preflight. NO OneDrive writes, NO local replacement.
+function v17l84Go(target){
+ const el=document.getElementById(target),status=document.getElementById('v17l84-status');
+ if(!el){if(status)status.textContent='Control de diagnóstico no disponible en esta vista; no se ha realizado ningún cambio.';return;}
+ el.scrollIntoView({behavior:'smooth',block:'center'});
+ el.focus({preventScroll:true});
+ if(status)status.textContent='Control localizado. Comprueba su descripción antes de ejecutarlo; no se ha modificado ningún dato.';
+}
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>SANDBOX 17L.78 · Diagnóstico de bajas</h2>
-<p>Centro de sincronización consolidado. Primero analiza las tres copias; ninguna acción de escritura se ejecuta automáticamente.</p>
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.84 · Centro de sincronización (SANDBOX)</h2>
+<p>Interfaz integrada en pruebas. Trabaja exclusivamente con la base ficticia y el archivo OneDrive sandbox; no utilices datos reales.</p>
+<div class="panel" style="border:2px solid #397c9b;margin:16px 0;padding:18px">
+<h3>Sincronización guiada</h3>
+<p><strong>1. Comprobar</strong> — Analiza diferencias antes de permitir cambios.</p>
+<button class="btn primary" onclick="v17l84Go('v17l78-check')">Comprobar cambios (solo lectura)</button>
+<p><strong>2. Revisar</strong> — Examina el diagnóstico y las dependencias. Los conflictos no se resuelven automáticamente.</p>
+<button class="btn" onclick="v17l84Go('v17l72-check')">Revisar dependencias</button>
+<p><strong>3. Aplicar con autorización</strong> — En esta versión las operaciones protegidas siguen separadas: enviar una baja sandbox o recibirla solo localmente. No se ejecutan al pulsar aquí.</p>
+<button class="btn" onclick="v17l84Go('v17l82-receive')">Ir a recepción protegida</button>
+<p><strong>4. Verificar y renovar</strong> — Solo si local y OneDrive coinciden. Renovación de referencia exclusivamente local.</p>
+<button class="btn" onclick="v17l84Go('v17l83-renew')">Ir a verificación y referencia</button>
+<p id="v17l84-status" style="font-size:0.92em;color:#345">Ninguna operación de sincronización iniciada desde este panel.</p>
+</div>
 <div class="panel" style="border:2px solid #176e9e;margin:16px 0">
 <h3>1. Estado y vista previa de las tres copias (SOLO LECTURA)</h3>
 <p>Compara referencia, este navegador y OneDrive; clasifica altas, bajas, ediciones y conflictos y verifica relaciones. El resultado es un diagnóstico, no una autorización de escritura.</p>
