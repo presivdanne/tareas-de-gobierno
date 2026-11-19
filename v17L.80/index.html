@@ -881,16 +881,18 @@ async function v24Fetch(path,method='GET',body=null,headers={}){
  const verb=String(method).toUpperCase();
  if(path!==V24_META&&path!==V24_CONTENT)throw Error('SANDBOX 17L.75: ruta remota no permitida.');
  if(verb!=='GET'){
-  // 17L.90b: only the two individually prevalidated sandbox operations may write.
+  // 17L.94: only individually prevalidated, authorized sandbox operations may write.
   // The 17L.82 receiving routine remains read-only: it has no authorization token.
   const deletionAuth=headers['X-Sandbox-17L80-Authorization'];
   const additionAuth=headers['X-Sandbox-17L90-Authorization'];
   const editAuth=headers['X-Sandbox-17L93-Authorization'];
-  const authorizedDeletion=deletionAuth==='BAJA_UNICA_SANDBOX_17L80' && !additionAuth && !editAuth;
-  const authorizedAddition=additionAuth==='ALTA_UNICA_PROYECTO_SANDBOX_17L90' && !deletionAuth && !editAuth;
-  const authorizedEdit=editAuth==='EDICION_UNICA_TITULO_SANDBOX_17L93' && !deletionAuth && !additionAuth;
-  if(!authorizedDeletion&&!authorizedAddition&&!authorizedEdit)
-   throw Error('17L.93: escritura bloqueada. Solo operaciones sandbox autorizadas individualmente.');
+  const linkedAuth=headers['X-Sandbox-17L94-Authorization'];
+  const authorizedDeletion=deletionAuth==='BAJA_UNICA_SANDBOX_17L80' && !additionAuth && !editAuth && !linkedAuth;
+  const authorizedAddition=additionAuth==='ALTA_UNICA_PROYECTO_SANDBOX_17L90' && !deletionAuth && !editAuth && !linkedAuth;
+  const authorizedEdit=editAuth==='EDICION_UNICA_TITULO_SANDBOX_17L93' && !deletionAuth && !additionAuth && !linkedAuth;
+  const authorizedLinked=linkedAuth==='ALTA_TAREA_VINCULO_TODO_SANDBOX_17L94' && !deletionAuth && !additionAuth && !editAuth;
+  if(!authorizedDeletion&&!authorizedAddition&&!authorizedEdit&&!authorizedLinked)
+   throw Error('17L.94: escritura bloqueada. Solo operaciones sandbox autorizadas individualmente.');
   if(verb!=='PUT'||path!==V24_CONTENT)throw Error('SANDBOX: solo PUT al archivo de pruebas está permitido.');
   if(!v17l75Armed)throw Error('SANDBOX: habilita manualmente PUT solo al archivo sandbox.');
   if(V24_REMOTE!=='Tareas_Gobierno_SANDBOX_17L74_NO_PRODUCCION.json')
@@ -900,12 +902,13 @@ async function v24Fetch(path,method='GET',body=null,headers={}){
   if(headers['Content-Type']!=='application/json'||typeof body!=='string')
     throw Error('SANDBOX: solo se permite contenido cifrado JSON.');
   try{validateV23(JSON.parse(body));}catch(e){throw Error('SANDBOX: el contenido no es un respaldo cifrado válido.');}
-  if(!confirm('17L.90b · ÚLTIMA COMPROBACIÓN\n\n¿Confirmas escribir SOLO en el archivo cifrado de PRUEBAS '+V24_REMOTE+'?'))
+  if(!confirm('17L.94 · ÚLTIMA COMPROBACIÓN\n\n¿Confirmas escribir SOLO en el archivo cifrado de PRUEBAS '+V24_REMOTE+'?'))
     throw Error('Escritura de prueba cancelada.');
   headers={...headers};
   delete headers['X-Sandbox-17L80-Authorization'];
   delete headers['X-Sandbox-17L90-Authorization'];
   delete headers['X-Sandbox-17L93-Authorization'];
+  delete headers['X-Sandbox-17L94-Authorization'];
  }
  const token=await v24Token();
  return fetch('https://graph.microsoft.com/v1.0'+path,
@@ -11095,7 +11098,7 @@ function v17l93Analyze(base,local,remote){
   throw Error('Hay varias ediciones. 17L.93 admite una sola por navegador.');
  return changes;
 }
-async function v17l93Context(){
+async function v17l93Context(label='17L.93'){
  await saveQueue;
  if(!v23Key||!v23Salt)throw Error('Desbloquea la base local cifrada.');
  if(KEY!=='gobierno_sandbox_17l74_encrypted_test_only'||
@@ -11112,7 +11115,7 @@ async function v17l93Context(){
   throw Error('Integridad local, referencia o copia abierta no válida.');
  const meta=await v24Meta();if(!meta?.eTag)throw Error('OneDrive sandbox no está disponible.');
  const remoteRaw=await v17lRemoteContent(meta),remoteHash=await v24Hash(remoteRaw);
- const pass=prompt('17L.93: contraseña de OneDrive SANDBOX para comprobar la edición:');
+ const pass=prompt(label+': contraseña de OneDrive SANDBOX para verificar los cambios:');
  if(pass===null)return null;
  const env=validateV23(JSON.parse(remoteRaw));
  const remoteSalt=v23Unb64(env.salt),remoteKey=await v23Derive(pass,remoteSalt);
@@ -11325,8 +11328,247 @@ async function v17l93Renew(){
  }finally{v17l93Busy=false;btn.disabled=false;}
 }
 
+
+// 17L.94 · Protected atomic bundle: one new Task + one project relationship,
+// optionally one new To-Do. Only in the isolated encrypted sandbox.
+// Never resolves conflicts, remaps IDs, deletes rows, or writes production.
+let v17l94Busy=false;
+const V17L94_ALLOWED=new Set(['Tareas','Proyectos_Tareas_join','To_Dos']);
+function v17l94Analyze(base,local,remote){
+ const eq=v17l93Equal, additions={local:{},remote:{}};
+ for(const [table,pk] of Object.entries(V26_TABLES)){
+  if(![base,local,remote].every(d=>Array.isArray(d[table])))throw Error('Tabla ausente: '+table);
+  const [bm,lm,rm]=[base,local,remote].map(d=>new Map(d[table].map(r=>[String(r[pk]),v17l29Comparable(table,r)])));
+  if(bm.size!==base[table].length||lm.size!==local[table].length||rm.size!==remote[table].length)
+   throw Error('ID duplicado en '+table);
+  for(const [id,old] of bm){
+   if(!lm.has(id)||!rm.has(id))throw Error('Registro anterior eliminado: '+table+' ID '+id);
+   if(!eq(old,lm.get(id))||!eq(old,rm.get(id)))
+    throw Error('Registro anterior modificado: '+table+' ID '+id);
+  }
+  for(const [direction,d,m] of [['local',local,lm],['remote',remote,rm]]){
+   const extra=d[table].filter(r=>!bm.has(String(r[pk])));
+   if(extra.length){
+    if(!V17L94_ALLOWED.has(table))throw Error('Alta no autorizada en '+table);
+    additions[direction][table]=extra.map(r=>structuredClone(r));
+   }
+  }
+ }
+ if(!eq(base._v17l49_deletions,local._v17l49_deletions)||
+    !eq(base._v17l49_deletions,remote._v17l49_deletions))
+  throw Error('Marcadores de bajas modificados.');
+ for(const key of new Set([...Object.keys(base),...Object.keys(local),...Object.keys(remote)])){
+  if(Object.hasOwn(V26_TABLES,key)||key==='_v17l49_deletions'||key==='_v17l48_reference')continue;
+  if(!eq(base[key],local[key])||!eq(base[key],remote[key]))
+   throw Error('Propiedad global modificada: '+key);
+ }
+ function validateBundle(adds,side){
+  const tables=Object.keys(adds).sort();
+  if(!tables.length)return null;
+  if(tables.some(t=>!['Tareas','Proyectos_Tareas_join','To_Dos'].includes(t))||
+     adds.Tareas?.length!==1||adds.Proyectos_Tareas_join?.length!==1||
+     (adds.To_Dos&&adds.To_Dos.length!==1))
+   throw Error(side+': se admite una tarea, un vínculo y opcionalmente un to-do; sin otros cambios.');
+  const task=adds.Tareas[0],link=adds.Proyectos_Tareas_join[0],todo=adds.To_Dos?.[0]||null;
+  if(String(link.Tarea_ID)!==String(task.Tarea_ID))throw Error(side+': el vínculo no corresponde a la nueva tarea.');
+  const project=base.Proyectos.find(p=>String(p.Proyecto_ID)===String(link.Proyecto_ID));
+  if(!project)throw Error(side+': el proyecto vinculado no existe en la referencia.');
+  if(task.Proyecto_Principal_ID!==null&&task.Proyecto_Principal_ID!==undefined&&
+     task.Proyecto_Principal_ID!==''&&String(task.Proyecto_Principal_ID)!==String(link.Proyecto_ID))
+   throw Error(side+': el proyecto principal no coincide con el vínculo.');
+  if(todo&&String(todo.Tarea_ID)!==String(task.Tarea_ID))
+   throw Error(side+': el to-do no corresponde a la nueva tarea.');
+  if(typeof task.Tarea!=='string'||!task.Tarea.trim()||task.Tarea.length>250)
+   throw Error(side+': título de tarea inválido.');
+  if(todo&&(typeof todo.To_Do!=='string'||!todo.To_Do.trim()||todo.To_Do.length>1000))
+   throw Error(side+': texto de to-do inválido.');
+  return {task,link,todo,project};
+ }
+ const localBundle=validateBundle(additions.local,'Local');
+ const remoteBundle=validateBundle(additions.remote,'OneDrive');
+ return {additions,localBundle,remoteBundle};
+}
+function v17l94Description(bundle){
+ return 'Tareas ID '+bundle.task.Tarea_ID+' («'+bundle.task.Tarea+'»), '+
+  'Proyectos_Tareas_join ID '+bundle.link.Proyectos_Tareas_ID+
+  ' (Proyecto ID '+bundle.link.Proyecto_ID+')'+
+  (bundle.todo?', To_Dos ID '+bundle.todo.To_Do_ID+' («'+bundle.todo.To_Do+'»)':'');
+}
+function v17l94Candidate(source,adds){
+ const candidate=structuredClone(source);
+ for(const table of ['Tareas','Proyectos_Tareas_join','To_Dos'])
+  for(const r of adds[table]||[])candidate[table].push(structuredClone(r));
+ return candidate;
+}
+async function v17l94SyncBundle(){
+ const out=document.getElementById('v17l94-sync-out'),btn=document.getElementById('v17l94-sync');
+ if(!out||!btn||v17l94Busy)return;
+ v17l94Busy=true;btn.disabled=true;
+ out.textContent='17L.94 · PREVALIDANDO TAREA, VÍNCULO Y TO-DO (SANDBOX)…';
+ const say=s=>out.textContent+='\n'+s;
+ let attemptedRemote=false,attemptedLocal=false;
+ try{
+  const c=await v17l93Context('17L.94');if(!c){say('CANCELADO.');return;}
+  const d=v17l94Analyze(c.base,c.local,c.remote);
+  if(!d.localBundle&&!d.remoteBundle){say('TODO AL DÍA: no hay nuevas tareas ni vínculos pendientes.');return;}
+  if(d.localBundle&&d.remoteBundle)throw Error('Altas simultáneas en navegador y OneDrive. Revisión manual: no fusionar.');
+  const direction=d.localBundle?'send':'receive',bundle=d.localBundle||d.remoteBundle;
+  if(direction==='send'){
+   if(!v17l75Armed)throw Error('Activa «Habilitar PUT solo al archivo sandbox» antes de enviar.');
+   if(c.meta.eTag!==c.base._v17l48_reference.etag||
+      c.remoteHash!==c.base._v17l48_reference.remoteHash)
+    throw Error('OneDrive no coincide con la referencia anterior. No enviar.');
+  }else if(c.meta.eTag===c.base._v17l48_reference.etag&&
+           c.remoteHash===c.base._v17l48_reference.remoteHash)
+   throw Error('No hay versión remota nueva para recibir.');
+  const candidate=v17l94Candidate(direction==='send'?c.remote:c.local,
+                                  d.additions[direction==='send'?'local':'remote']);
+  if(v17eAnalyze(candidate).issues.length)throw Error('El candidato no supera la integridad de las 12 tablas.');
+  if(!v17l93SameTables(candidate,direction==='send'?c.local:c.remote))
+   throw Error('El candidato no reproduce exactamente las altas autorizadas.');
+  await v17l93Stable(c);
+  say('PREVALIDACIÓN SUPERADA: '+v17l94Description(bundle)+'.');
+  say('Dirección: '+(direction==='send'?'ESTE NAVEGADOR → ONEDRIVE':'ONEDRIVE → ESTE NAVEGADOR'));
+  say('Registros anteriores intactos. Integridad válida. ETag '+c.meta.eTag+'.');
+  say('La referencia no se renovará durante esta operación.');
+  const phrase=direction==='send'?'ENVIAR VINCULOS 94':'RECIBIR VINCULOS 94';
+  if(!confirm('17L.94 · ALTAS VINCULADAS (SANDBOX)\n\n'+v17l94Description(bundle)+
+     '\n\n¿Preparar un respaldo CIFRADO antes de '+(direction==='send'?'enviar':'recibir')+'?')){
+   say('CANCELADO.');return;
+  }
+  if(prompt('Escribe exactamente '+phrase+' para preparar el respaldo:')!==phrase){
+   say('CANCELADO: autorización incorrecta.');return;
+  }
+  await v17l93Stable(c);
+  const key=direction==='send'?c.remoteKey:v23Key,salt=direction==='send'?c.remoteSalt:v23Salt;
+  const sealed=JSON.stringify(await v23Seal(candidate,key,salt));
+  const check=await v23Open(validateV23(JSON.parse(sealed)),key);
+  if(v17eAnalyze(check).issues.length||!v17l93SameTables(check,candidate))
+   throw Error('No se pudo verificar el candidato cifrado.');
+  await v17l93Stable(c);
+  const backup=direction==='send'?c.remoteRaw:c.localRaw;
+  const filename='Respaldo_'+(direction==='send'?'OneDrive':'Navegador')+'_ANTES_17L94_'+
+   (await v24Hash(backup)).slice(0,12)+'_CIFRADO.json';
+  v17l93Download(backup,filename);say('DESCARGA INICIADA: '+filename);
+  if(!confirm('Comprueba que el respaldo CIFRADO está guardado en Descargas.\n\n'+
+    '¿AUTORIZAS '+(direction==='send'?'ENVIAR':'RECIBIR')+' estas '+(bundle.todo?'TRES':'DOS')+
+    ' altas vinculadas?\n\n'+
+    (direction==='send'?'Solo cambia OneDrive sandbox.':'Solo cambia ESTE navegador.'))){
+   say('CANCELADO. No se aplicaron cambios.');return;
+  }
+  await v17l93Stable(c);
+  if(direction==='send'){
+   const digest=await v17jDigest(candidate);
+   attemptedRemote=true;say('Enviando con If-Match…');
+   const response=await v24Fetch(V24_CONTENT,'PUT',sealed,{'Content-Type':'application/json',
+    'If-Match':c.meta.eTag,'X-Sandbox-17L94-Authorization':'ALTA_TAREA_VINCULO_TODO_SANDBOX_17L94'});
+   if(!response.ok)throw Error('OneDrive HTTP '+response.status+'. No reintentar sin auditoría.');
+   const after=await v24Meta(),raw=await v17lRemoteContent(after);
+   const env=validateV23(JSON.parse(raw));
+   const installed=await v23Open(env,await v23DeriveFrom93Key(c.remoteKey,env,c.remoteSalt));
+   if(!after?.eTag||after.eTag===c.meta.eTag||v17eAnalyze(installed).issues.length||
+      await v17jDigest(installed)!==digest)
+    throw Error('La escritura remota no pudo verificarse. NO reintentar.');
+   if(localStorage.getItem(KEY)!==c.localRaw||localStorage.getItem(V17L48_BASELINE)!==c.baseRaw)
+    throw Error('Copia local o referencia cambiaron después del envío. Auditar.');
+   say('ENVÍO 17L.94 VERIFICADO: '+v17l94Description(bundle)+'.');
+   say('ETag nuevo: '+after.eTag+'. Referencia no renovada.');
+   say('NO REPITAS EL ENVÍO. Comprueba recepción en Edge.');
+  }else{
+   attemptedLocal=true;
+   localStorage.setItem(KEY,sealed);
+   if(localStorage.getItem(KEY)!==sealed)throw Error('No se pudo guardar la copia local cifrada.');
+   const saved=await v23Open(validateV23(JSON.parse(localStorage.getItem(KEY))),v23Key);
+   if(v17eAnalyze(saved).issues.length||!v17l93SameTables(saved,c.remote))
+    throw Error('No se pudo verificar la recepción local. NO reintentar.');
+   db=saved;
+   say('RECEPCIÓN 17L.94 VERIFICADA: '+v17l94Description(bundle)+'.');
+   say('Solo se modificó ESTE navegador; OneDrive y referencia intactos.');
+   say('Comprueba la tarea, su proyecto y el to-do antes de renovar referencias.');
+  }
+ }catch(e){
+  say('BLOQUEADO O NO VERIFICADO: '+(e?.message||String(e)));
+  say(attemptedRemote?'SE INTENTÓ ESCRIBIR: NO REINTENTAR sin auditoría.':
+      attemptedLocal?'PUDO CAMBIAR LA BASE LOCAL: NO REINTENTAR sin auditoría.':
+      'No se inició escritura en OneDrive ni en la base local.');
+ }finally{v17l94Busy=false;btn.disabled=false;}
+}
+async function v17l94Renew(){
+ const out=document.getElementById('v17l94-renew-out'),btn=document.getElementById('v17l94-renew');
+ if(!out||!btn||v17l94Busy)return;
+ v17l94Busy=true;btn.disabled=true;
+ out.textContent='17L.94 · VERIFICANDO REFERENCIA TRAS ALTAS VINCULADAS…';
+ const say=s=>out.textContent+='\n'+s;
+ let wrote=false;
+ try{
+  const c=await v17l93Context('17L.94');if(!c){say('CANCELADO.');return;}
+  const d=v17l94Analyze(c.base,c.local,c.remote);
+  if(!d.localBundle&&!d.remoteBundle){
+   if(c.base._v17l48_reference.etag===c.meta.eTag&&
+      c.base._v17l48_reference.remoteHash===c.remoteHash&&v17l93SameTables(c.local,c.remote)){
+    say('TODO AL DÍA. No es necesario renovar la referencia.');return;
+   }
+   throw Error('ETag/huella cambió sin altas esperadas. Revisión manual.');
+  }
+  if(!d.localBundle||!d.remoteBundle||!v17l93SameTables(c.local,c.remote))
+   throw Error('Las altas aún no coinciden en este navegador y OneDrive.');
+  if(c.meta.eTag===c.base._v17l48_reference.etag&&
+     c.remoteHash===c.base._v17l48_reference.remoteHash)
+   throw Error('OneDrive todavía no muestra una versión nueva.');
+  await v17l93Stable(c);
+  say('COINCIDENCIA CONFIRMADA: 12 tablas, vínculos y marcadores de bajas.');
+  say('Altas verificadas: '+v17l94Description(d.localBundle)+'.');
+  say('ETag anterior: '+c.base._v17l48_reference.etag+' · nuevo: '+c.meta.eTag+'.');
+  say('Solo se renovará la referencia de ESTE navegador; OneDrive y datos locales intactos.');
+  if(!confirm('17L.94 · RENOVACIÓN DE REFERENCIA (SANDBOX)\n\n'+
+     'Tarea, vínculo y to-do coinciden con OneDrive.\n¿Preparar respaldo CIFRADO de la referencia anterior?')){
+   say('CANCELADO.');return;
+  }
+  const snapshot={...structuredClone(c.local),_v17l48_reference:{version:'17L.48a',
+   remoteHash:c.remoteHash,etag:c.meta.eTag,createdAt:new Date().toISOString()}};
+  const sealed=JSON.stringify(await v23Seal(snapshot,v23Key,v23Salt));
+  const check=await v23Open(validateV23(JSON.parse(sealed)),v23Key);
+  if(v17eAnalyze(check).issues.length||!v17l93SameTables(check,c.local)||
+     check._v17l48_reference?.etag!==c.meta.eTag||
+     check._v17l48_reference?.remoteHash!==c.remoteHash)
+   throw Error('La nueva referencia cifrada no pudo verificarse.');
+  await v17l93Stable(c);
+  const hash=await v24Hash(c.baseRaw),
+        backupKey='gobierno_sandbox_17l94_ref_backup_'+hash.slice(0,24)+'_encrypted';
+  const existing=localStorage.getItem(backupKey);
+  if(existing!==null&&existing!==c.baseRaw)
+   throw Error('Respaldo previo distinto. No se sobrescribe.');
+  const filename='Respaldo_Referencia_ANTES_17L94_'+hash.slice(0,12)+'_CIFRADO.json';
+  v17l93Download(c.baseRaw,filename);say('DESCARGA INICIADA: '+filename);
+  if(!confirm('Comprueba que el respaldo CIFRADO está guardado en Descargas.\n\n'+
+    '¿AUTORIZAS renovar SOLO la referencia de ESTE navegador al ETag '+c.meta.eTag+'?')){
+   say('CANCELADO. Referencia intacta.');return;
+  }
+  await v17l93Stable(c);
+  if(existing===null){
+   localStorage.setItem(backupKey,c.baseRaw);
+   if(localStorage.getItem(backupKey)!==c.baseRaw)throw Error('Respaldo anterior no verificado.');
+  }
+  wrote=true;localStorage.setItem(V17L48_BASELINE,sealed);
+  if(localStorage.getItem(V17L48_BASELINE)!==sealed)
+   throw Error('No se guardó la referencia. No sincronices.');
+  const verified=await v23Open(validateV23(JSON.parse(localStorage.getItem(V17L48_BASELINE))),v23Key);
+  if(!v17l93SameTables(verified,c.local)||
+     verified._v17l48_reference?.etag!==c.meta.eTag||
+     verified._v17l48_reference?.remoteHash!==c.remoteHash)
+   throw Error('No se verificó la referencia nueva. No sincronices.');
+  say('REFERENCIA 17L.94 RENOVADA Y VERIFICADA SOLO EN ESTE NAVEGADOR.');
+  say('ETag: '+c.meta.eTag+'. Respaldo anterior preservado; OneDrive y datos locales intactos.');
+  say('Repite en el otro navegador y ejecuta «Verificar estado (solo lectura)» en ambos.');
+ }catch(e){
+  say('BLOQUEADO O NO VERIFICADO: '+(e?.message||String(e)));
+  say(wrote?'La referencia pudo cambiar. NO reintentar sin auditoría.':'No se modificó la referencia actual.');
+  say('No se escribió en OneDrive ni en la base local.');
+ }finally{v17l94Busy=false;btn.disabled=false;}
+}
+
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.93 · Centro de sincronización (SANDBOX)</h2>
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.94 · Centro de sincronización (SANDBOX)</h2>
 <p>Interfaz integrada en pruebas. Trabaja exclusivamente con la base ficticia y el archivo OneDrive sandbox; no utilices datos reales.</p>
 <div class="panel" style="border:2px solid #397c9b;margin:16px 0;padding:18px">
 <h3>Sincronización guiada</h3>
@@ -11360,6 +11602,15 @@ function v17l26Panel(){
 <p>Cuando la edición esté en Chrome y Edge, renueva la referencia <strong>por separado en cada navegador</strong>, conservando la referencia anterior.</p>
 <button class="btn" id="v17l93-renew" onclick="v17l93Renew()">Verificar y renovar referencia tras edición (protegido)</button>
 <div id="v17l93-renew-out" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Sin ejecutar. Referencia intacta.</div>
+</div>
+<div class="panel" style="border:2px solid #176e9e;margin:16px 0;padding:14px">
+<h3>10. Altas vinculadas: tarea + proyecto + to-do (17L.94 · SANDBOX)</h3>
+<p>Sincroniza <strong>una tarea nueva y su relación con un proyecto existente</strong>, con un <strong>to-do nuevo opcional</strong>. Verifica que los IDs y las relaciones sean válidos. Solo admite altas en uno de los dos lados; bloquea cambios simultáneos, conflictos, bajas y otras modificaciones.</p>
+<button class="btn primary" id="v17l94-sync" onclick="v17l94SyncBundle()">Comprobar y sincronizar tarea vinculada (protegido)</button>
+<div id="v17l94-sync-out" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Sin ejecutar. No se han modificado datos.</div>
+<p>Cuando la tarea y el to-do aparezcan en Chrome y Edge, renueva la referencia <strong>por separado en cada navegador</strong>.</p>
+<button class="btn" id="v17l94-renew" onclick="v17l94Renew()">Verificar y renovar referencia tras altas vinculadas (protegido)</button>
+<div id="v17l94-renew-out" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Sin ejecutar. Referencia intacta.</div>
 </div>
 <p id="v17l84-status" style="font-size:0.92em;color:#345">Ninguna operación de sincronización iniciada desde este panel.</p>
 </div>
