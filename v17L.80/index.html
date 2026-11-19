@@ -10560,6 +10560,26 @@ function v17l86Review(){
   }).finally(()=>{if(action)action.disabled=false;});
  }catch(err){destination.textContent='Error al revisar: '+(err?.message||String(err));if(action)action.disabled=false;}
 }
+// 17L.87: bring existing protected, sandbox-only operations into the guided centre.
+// These are explicit user clicks; all existing validations and confirmations remain in force.
+let v17l87Observer=null;
+function v17l87Protected(kind){
+ const choices={send:['v17l80-out','v17l80-send',v17l80SendSandboxDeletion],receive:['v17l82-out','v17l82-receive',v17l82Receive],renew:['v17l83-out','v17l83-renew',v17l83RenewReference]};
+ const choice=choices[kind],result=document.getElementById('v17l87-result');
+ if(!choice||!result)return;
+ const [sourceId,buttonId,operation]=choice;
+ const source=document.getElementById(sourceId),original=document.getElementById(buttonId);
+ if(!source||!original||original.disabled){result.textContent='Operación protegida no disponible o ya en curso. No se inició otra operación.';return;}
+ if(v17l87Observer){v17l87Observer.disconnect();v17l87Observer=null;}
+ const show=()=>{result.textContent=source.textContent||'Esperando resultado de la operación protegida…';};
+ v17l87Observer=new MutationObserver(show);
+ v17l87Observer.observe(source,{childList:true,characterData:true,subtree:true});
+ result.textContent='Ejecutando prevalidaciones protegidas (SANDBOX). Puede solicitar confirmaciones y un respaldo cifrado…';
+ const btn=document.getElementById('v17l87-'+kind);
+ if(btn)btn.disabled=true;
+ try{Promise.resolve(operation()).then(show,e=>{result.textContent='Operación detenida: '+(e?.message||String(e));}).finally(()=>{show();if(btn)btn.disabled=false;});}
+ catch(e){result.textContent='Operación detenida: '+(e?.message||String(e));if(btn)btn.disabled=false;}
+}
 function v17l84Go(target){
  const el=document.getElementById(target),status=document.getElementById('v17l84-status');
  if(!el){if(status)status.textContent='Control no disponible; no se ha realizado ningún cambio.';return;}
@@ -10568,7 +10588,7 @@ function v17l84Go(target){
  if(status)status.textContent='Control localizado. Lee su descripción antes de ejecutarlo; no se ha modificado ningún dato.';
 }
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.86 · Centro de sincronización (SANDBOX)</h2>
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.87 · Centro de sincronización (SANDBOX)</h2>
 <p>Interfaz integrada en pruebas. Trabaja exclusivamente con la base ficticia y el archivo OneDrive sandbox; no utilices datos reales.</p>
 <div class="panel" style="border:2px solid #397c9b;margin:16px 0;padding:18px">
 <h3>Sincronización guiada</h3>
@@ -10576,10 +10596,12 @@ function v17l26Panel(){
 <button class="btn primary" id="v17l85-check" onclick="v17l85Check()">Comprobar cambios (solo lectura)</button><div id="v17l85-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Pulsa Comprobar cambios para ver el resultado aquí, sin desplazarte por la página.</div>
 <p><strong>2. Revisar</strong> — Examina el diagnóstico y las dependencias. Los conflictos no se resuelven automáticamente.</p>
 <button class="btn" id="v17l86-review" onclick="v17l86Review()">Revisar dependencias (solo lectura)</button><div id="v17l86-review-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Pulsa Revisar dependencias para ver el informe aquí.</div>
-<p><strong>3. Aplicar con autorización</strong> — En esta versión las operaciones protegidas siguen separadas: enviar una baja sandbox o recibirla solo localmente. No se ejecutan al pulsar aquí.</p>
-<button class="btn" onclick="v17l84Go('v17l82-receive')">Ir a recepción protegida</button>
-<p><strong>4. Verificar y renovar</strong> — Solo si local y OneDrive coinciden. Renovación de referencia exclusivamente local.</p>
-<button class="btn" onclick="v17l84Go('v17l83-renew')">Ir a verificación y referencia</button>
+<p><strong>3. Sincronizar con autorización</strong> — Acciones protegidas de prueba. Solo permiten UNA baja aislada; no sincronizan altas, ediciones ni conflictos. Cada operación vuelve a comprobar los datos, exige sus propias confirmaciones y puede solicitar respaldo cifrado.</p>
+<button class="btn" id="v17l87-send" onclick="v17l87Protected('send')">Enviar una baja local protegida (SANDBOX)</button>
+<button class="btn" id="v17l87-receive" onclick="v17l87Protected('receive')">Recibir una baja remota protegida (SANDBOX)</button>
+<p><strong>4. Verificar y renovar</strong> — Renovar referencia cifrada SOLO en este navegador, después de verificar que las 12 tablas coinciden con OneDrive. No escribe en OneDrive.</p>
+<button class="btn" id="v17l87-renew" onclick="v17l87Protected('renew')">Verificar y renovar referencia local</button>
+<div id="v17l87-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Las operaciones protegidas mostrarán aquí sus resultados. No se ha iniciado ninguna.</div>
 <p id="v17l84-status" style="font-size:0.92em;color:#345">Ninguna operación de sincronización iniciada desde este panel.</p>
 </div>
 <div class="panel" style="border:2px solid #176e9e;margin:16px 0">
