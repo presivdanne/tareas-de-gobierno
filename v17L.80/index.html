@@ -10510,20 +10510,47 @@ function v17l29Comparable(table, record){
  return copy;
 }
 // 17L.26 phase 1: read-only preflight. NO OneDrive writes, NO local replacement.
+// 17L.85: read-only diagnostic appears inside the main sync centre.
+// The existing audited comparison remains unchanged. No writes are initiated here.
+let v17l85Mirror=null;
+function v17l85Check(){
+ const source=document.getElementById('v17l78-out');
+ const destination=document.getElementById('v17l85-result');
+ const original=document.getElementById('v17l78-check');
+ if(!source||!destination||!original){
+  if(destination)destination.textContent='No se encontró el diagnóstico; no se modificaron datos.';
+  return;
+ }
+ if(v17l85Mirror){v17l85Mirror.disconnect();v17l85Mirror=null;}
+ const update=()=>{
+  destination.textContent=source.textContent||'Esperando diagnóstico…';
+  const done=/RESULTADO:|CANCELADO|ERROR|ERROR:|No se pudo|NO SE PUDO/i.test(destination.textContent);
+  const action=document.getElementById('v17l85-check');
+  if(action)action.disabled=!done && original.disabled;
+ };
+ v17l85Mirror=new MutationObserver(update);
+ v17l85Mirror.observe(source,{childList:true,characterData:true,subtree:true});
+ destination.textContent='Comprobando diferencias (solo lectura)…';
+ const action=document.getElementById('v17l85-check');
+ if(action)action.disabled=true;
+ try{const pending=v17l78Inspect();Promise.resolve(pending).finally(()=>{
+  update();if(action)action.disabled=false;
+ }).catch(()=>{});}catch(err){destination.textContent='Error de comprobación: '+err.message;if(action)action.disabled=false;}
+}
 function v17l84Go(target){
  const el=document.getElementById(target),status=document.getElementById('v17l84-status');
- if(!el){if(status)status.textContent='Control de diagnóstico no disponible en esta vista; no se ha realizado ningún cambio.';return;}
+ if(!el){if(status)status.textContent='Control no disponible; no se ha realizado ningún cambio.';return;}
  el.scrollIntoView({behavior:'smooth',block:'center'});
  el.focus({preventScroll:true});
- if(status)status.textContent='Control localizado. Comprueba su descripción antes de ejecutarlo; no se ha modificado ningún dato.';
+ if(status)status.textContent='Control localizado. Lee su descripción antes de ejecutarlo; no se ha modificado ningún dato.';
 }
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.84 · Centro de sincronización (SANDBOX)</h2>
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.85 · Centro de sincronización (SANDBOX)</h2>
 <p>Interfaz integrada en pruebas. Trabaja exclusivamente con la base ficticia y el archivo OneDrive sandbox; no utilices datos reales.</p>
 <div class="panel" style="border:2px solid #397c9b;margin:16px 0;padding:18px">
 <h3>Sincronización guiada</h3>
 <p><strong>1. Comprobar</strong> — Analiza diferencias antes de permitir cambios.</p>
-<button class="btn primary" onclick="v17l84Go('v17l78-check')">Comprobar cambios (solo lectura)</button>
+<button class="btn primary" id="v17l85-check" onclick="v17l85Check()">Comprobar cambios (solo lectura)</button><div id="v17l85-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Pulsa Comprobar cambios para ver el resultado aquí, sin desplazarte por la página.</div>
 <p><strong>2. Revisar</strong> — Examina el diagnóstico y las dependencias. Los conflictos no se resuelven automáticamente.</p>
 <button class="btn" onclick="v17l84Go('v17l72-check')">Revisar dependencias</button>
 <p><strong>3. Aplicar con autorización</strong> — En esta versión las operaciones protegidas siguen separadas: enviar una baja sandbox o recibirla solo localmente. No se ejecutan al pulsar aquí.</p>
