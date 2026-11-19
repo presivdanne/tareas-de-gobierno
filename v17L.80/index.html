@@ -10779,8 +10779,136 @@ async function v17l90SendProject(){
   say(attempted?'SE INTENTÓ ESCRIBIR: NO REINTENTAR sin auditoría.':'NO se inició escritura a OneDrive.');
  }finally{v17l90Busy=false;btn.disabled=false;}
 }
+// 17L.91: receive exactly one remote sandbox project addition into this browser.
+// No OneDrive writes, no baseline renewal, no automatic merging of other changes.
+let v17l91Busy=false;
+async function v17l91ReceiveProject(){
+ const out=document.getElementById('v17l91-out'),btn=document.getElementById('v17l91-receive');
+ if(!out||!btn||v17l91Busy)return;
+ v17l91Busy=true;btn.disabled=true;
+ out.textContent='17L.91 · Comprobando recepción de proyecto remoto (SANDBOX)…';
+ const say=x=>out.textContent+='\n'+x;
+ const eq=(a,b)=>JSON.stringify(v26Sort(a))===JSON.stringify(v26Sort(b));
+ let wroteLocal=false;
+ try{
+  await saveQueue;
+  if(!v23Key||!v23Salt)throw Error('Desbloquea primero la base local de Edge.');
+  if(V24_REMOTE!=='Tareas_Gobierno_SANDBOX_17L74_NO_PRODUCCION.json'||
+     V17L48_BASELINE!=='gobierno_sandbox_17l74_common_reference_encrypted'||
+     KEY!=='gobierno_sandbox_17l74_encrypted_test_only')
+   throw Error('Configuración no corresponde al sandbox aislado.');
+  const localRaw=localStorage.getItem(KEY),baseRaw=localStorage.getItem(V17L48_BASELINE);
+  if(!localRaw||!baseRaw)throw Error('Falta copia local cifrada o referencia.');
+  const base=await v23Open(validateV23(JSON.parse(baseRaw)),v23Key);
+  const local=await v23Open(validateV23(JSON.parse(localRaw)),v23Key);
+  if(base._v17l48_reference?.version!=='17L.48a'||!base._v17l48_reference?.etag)
+   throw Error('Referencia anterior no reconocida.');
+  if(v17eAnalyze(base).issues.length||v17eAnalyze(local).issues.length||v2410OpenMatches(local).length)
+   throw Error('La copia local abierta, guardada o referencia no supera la integridad.');
+  const meta=await v24Meta();if(!meta?.eTag)throw Error('No se encontró el archivo de OneDrive sandbox.');
+  if(meta.eTag===base._v17l48_reference.etag)
+   throw Error('OneDrive no tiene una versión nueva frente a la referencia.');
+  const remoteRaw=await v17lRemoteContent(meta),remoteHash=await v24Hash(remoteRaw);
+  const pass=prompt('17L.91: contraseña del archivo OneDrive sandbox para comprobar la recepción (solo lectura):');
+  if(pass===null){say('CANCELADO. Ningún dato modificado.');return;}
+  const env=validateV23(JSON.parse(remoteRaw));
+  const remote=await v23Open(env,await v23Derive(pass,v23Unb64(env.salt)));
+  if(v17eAnalyze(remote).issues.length)throw Error('Integridad OneDrive inválida.');
+  if(!eq(base._v17l49_deletions,local._v17l49_deletions)||
+     !eq(base._v17l49_deletions,remote._v17l49_deletions))
+   throw Error('Marcadores de bajas diferentes: revisión manual obligatoria.');
+  let added=null,unchanged=0;
+  for(const [table,pk] of Object.entries(V26_TABLES)){
+   if(![base,local,remote].every(x=>Array.isArray(x[table])))throw Error('Tabla ausente: '+table);
+   const [bm,lm,rm]=[base,local,remote].map(x=>new Map(x[table].map(r=>[String(r[pk]),v17l29Comparable(table,r)])));
+   if(bm.size!==base[table].length||lm.size!==local[table].length||rm.size!==remote[table].length)
+    throw Error('IDs duplicados: '+table);
+   if(lm.size!==bm.size)throw Error('Hay altas o bajas locales no autorizadas: '+table);
+   for(const [id,row] of bm){
+    if(!lm.has(id)||!eq(row,lm.get(id)))throw Error('Cambio local frente a la referencia: '+table+' ID '+id);
+    if(!rm.has(id)||!eq(row,rm.get(id)))throw Error('Cambio remoto adicional frente a referencia: '+table+' ID '+id);
+    unchanged++;
+   }
+   for(const [id,row] of rm){
+    if(bm.has(id))continue;
+    if(table!=='Proyectos'||added)throw Error('Solo se admite UN proyecto nuevo en OneDrive, sin otros cambios.');
+    added=structuredClone(remote[table].find(x=>String(x[pk])===id));
+   }
+  }
+  if(!added){say('SIN ALTAS REMOTAS. No se ha modificado ningún dato.');return;}
+  const pk=V26_TABLES.Proyectos,id=String(added[pk]);
+  // This is the specific fictional project already sent by Chrome in 17L.90.
+  if(id!=='1'||added.Proyecto!=='Prueba sincronización 17L.90')
+   throw Error('El alta remota no es el proyecto ficticio esperado (ID 1, Prueba sincronización 17L.90).');
+  const candidate=structuredClone(local);candidate.Proyectos.push(added);
+  if(v17eAnalyze(candidate).issues.length)
+   throw Error('La recepción produciría relaciones inválidas: '+v17eAnalyze(candidate).issues.slice(0,3).join('; '));
+  for(const [table,tablePk] of Object.entries(V26_TABLES)){
+   const norm=x=>x[table].map(r=>v17l29Comparable(table,r))
+     .sort((a,b)=>String(a[tablePk]).localeCompare(String(b[tablePk])));
+   if(!eq(norm(candidate),norm(remote)))throw Error('El candidato no coincide con OneDrive: '+table);
+  }
+  const stable=async()=>{
+   await saveQueue;
+   const latest=await v24Meta();
+   if(localStorage.getItem(KEY)!==localRaw||localStorage.getItem(V17L48_BASELINE)!==baseRaw||
+      latest?.eTag!==meta.eTag||await v24Hash(await v17lRemoteContent(latest))!==remoteHash)
+    throw Error('Las copias cambiaron durante la revisión; recepción cancelada.');
+  };
+  await stable();
+  say('PREVALIDACIÓN SUPERADA: Proyectos ID '+id+' · alta SOLO ONEDRIVE.');
+  say('Otros '+unchanged+' registros intactos. Integridad válida. ETag '+meta.eTag+'.');
+  say('No se escribirá nada en OneDrive ni se renovará la referencia.');
+  if(!confirm('17L.91 · RECIBIR PROYECTO EN ESTE NAVEGADOR\n\n'+
+    'Incorporar SOLO «'+added.Proyecto+'» (ID '+id+') a la base local de Edge.\n'+
+    'OneDrive, Chrome y la referencia NO se modificarán.\n\n¿Preparar respaldo local CIFRADO previo?')){
+   say('CANCELADO. Sin cambios.');return;
+  }
+  if(prompt('Escribe exactamente RECIBIR PROYECTO 91 para preparar el respaldo:')!=='RECIBIR PROYECTO 91'){
+   say('CANCELADO: autorización incorrecta. Sin cambios.');return;
+  }
+  await stable();
+  // Encrypt and round-trip before replacing any local storage.
+  const sealed=JSON.stringify(await v23Seal(candidate,v23Key,v23Salt));
+  const verified=await v23Open(validateV23(JSON.parse(sealed)),v23Key);
+  if(v17eAnalyze(verified).issues.length||!eq(verified.Proyectos,candidate.Proyectos))
+   throw Error('No se pudo verificar la nueva copia local cifrada.');
+  for(const [table,tablePk] of Object.entries(V26_TABLES)){
+   const norm=x=>x[table].map(r=>v17l29Comparable(table,r))
+     .sort((a,b)=>String(a[tablePk]).localeCompare(String(b[tablePk])));
+   if(!eq(norm(verified),norm(candidate)))throw Error('El cifrado no conservó '+table);
+  }
+  await stable();
+  const filename='Respaldo_Edge_ANTES_RECEPCION_17L91_'+(await v24Hash(localRaw)).slice(0,12)+'_CIFRADO.json';
+  const url=URL.createObjectURL(new Blob([localRaw],{type:'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download=filename;
+  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),20000);
+  say('DESCARGA INICIADA: '+filename);
+  if(!confirm('Comprueba en Descargas que el respaldo CIFRADO de Edge se ha guardado.\n\n'+
+      '¿AUTORIZAS recibir SOLO el proyecto ID '+id+' en este navegador?\n\nNo se escribirá en OneDrive.')){
+   say('CANCELADO. No se modificó la base local.');return;
+  }
+  await stable();
+  wroteLocal=true;
+  localStorage.setItem(KEY,sealed);
+  if(localStorage.getItem(KEY)!==sealed)throw Error('La copia local cifrada no quedó guardada. No sincronices.');
+  const check=await v23Open(validateV23(JSON.parse(localStorage.getItem(KEY))),v23Key);
+  if(v17eAnalyze(check).issues.length||check.Proyectos.filter(x=>String(x[pk])===id).length!==1||
+     !eq(v17l29Comparable('Proyectos',check.Proyectos.find(x=>String(x[pk])===id)),v17l29Comparable('Proyectos',added)))
+   throw Error('La recepción local no se pudo verificar. No sincronices.');
+  db=check;
+  say('RECEPCIÓN 17L.91 COMPLETADA Y VERIFICADA: proyecto ID '+id+' incorporado en Edge.');
+  say('OneDrive, Chrome y referencia NO modificados. Respaldo cifrado anterior descargado.');
+  say('Ahora abre «Proyectos» en Edge y comprueba que aparece «'+added.Proyecto+'».');
+  say('No renueves referencias hasta verificar las dos copias.');
+ }catch(e){say('BLOQUEADO O NO VERIFICADO: '+(e?.message||String(e)));
+  say(wroteLocal?'ATENCIÓN: pudo modificarse la copia LOCAL. No reintentar sin auditar.':'No se modificó la base local.');
+  say('No se escribió en OneDrive.');
+ }finally{v17l91Busy=false;btn.disabled=false;}
+}
+
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.90b · Centro de sincronización (SANDBOX)</h2>
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.91 · Centro de sincronización (SANDBOX)</h2>
 <p>Interfaz integrada en pruebas. Trabaja exclusivamente con la base ficticia y el archivo OneDrive sandbox; no utilices datos reales.</p>
 <div class="panel" style="border:2px solid #397c9b;margin:16px 0;padding:18px">
 <h3>Sincronización guiada</h3>
@@ -10794,10 +10922,13 @@ function v17l26Panel(){
 <p><strong>4. Enviar un proyecto nuevo (17L.90b · sandbox)</strong> — Solo admite exactamente un proyecto local nuevo, con OneDrive idéntico a la referencia y sin otras diferencias. Requiere respaldo cifrado y doble autorización. No recibe en Edge ni renueva referencias.</p>
 <button class="btn primary" id="v17l90-send" onclick="v17l90SendProject()">Prevalidar y enviar proyecto único (protegido)</button>
 <div id="v17l90-out" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Sin ejecutar. No se ha escrito en OneDrive.</div>
-<p><strong>5. Sincronizar con autorización</strong> — Acciones protegidas de prueba. Solo permiten UNA baja aislada; no sincronizan altas, ediciones ni conflictos. Cada operación vuelve a comprobar los datos, exige sus propias confirmaciones y puede solicitar respaldo cifrado.</p>
+<p><strong>5. Recibir un proyecto nuevo en Edge (17L.91 · sandbox)</strong> — Solo admite exactamente el proyecto ficticio ID 1 recibido desde OneDrive, sin cambios locales ni otras diferencias. Comprueba integridad, descarga respaldo local cifrado y pide autorización. No escribe en OneDrive ni renueva referencias.</p>
+<button class="btn primary" id="v17l91-receive" onclick="v17l91ReceiveProject()">Prevalidar y recibir proyecto único (protegido)</button>
+<div id="v17l91-out" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Sin ejecutar. Ningún dato local modificado.</div>
+<p><strong>6. Sincronizar con autorización</strong> — Acciones protegidas de prueba. Solo permiten UNA baja aislada; no sincronizan altas, ediciones ni conflictos. Cada operación vuelve a comprobar los datos, exige sus propias confirmaciones y puede solicitar respaldo cifrado.</p>
 <button class="btn" id="v17l87-send" onclick="v17l87Protected('send')">Enviar una baja local protegida (SANDBOX)</button>
 <button class="btn" id="v17l87-receive" onclick="v17l87Protected('receive')">Recibir una baja remota protegida (SANDBOX)</button>
-<p><strong>6. Verificar estado</strong> — Comprobar las tres copias y la referencia sin renovar ni sobrescribir respaldos. No escribe en el navegador ni en OneDrive.</p>
+<p><strong>7. Verificar estado</strong> — Comprobar las tres copias y la referencia sin renovar ni sobrescribir respaldos. No escribe en el navegador ni en OneDrive.</p>
 <button class="btn" id="v17l87-renew" onclick="v17l88Verify()">Verificar estado (solo lectura)</button>
 <div id="v17l87-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Las operaciones protegidas mostrarán aquí sus resultados. No se ha iniciado ninguna.</div>
 <p id="v17l84-status" style="font-size:0.92em;color:#345">Ninguna operación de sincronización iniciada desde este panel.</p>
