@@ -10640,8 +10640,35 @@ function v17l84Go(target){
  el.focus({preventScroll:true});
  if(status)status.textContent='Control localizado. Lee su descripción antes de ejecutarlo; no se ha modificado ningún dato.';
 }
+// 17L.89: expose the already tested three-way simulation in the guided centre.
+// Strictly read-only: the planner creates no local or remote writes.
+let v17l89Busy=false;
+async function v17l89Preview(){
+ const out=document.getElementById('v17l89-result');
+ const btn=document.getElementById('v17l89-preview');
+ const legacy=document.getElementById('v17l66-out');
+ if(!out||!btn||!legacy||v17l89Busy)return;
+ v17l89Busy=true;btn.disabled=true;
+ out.textContent='17L.89 · Preparando vista previa general (SOLO LECTURA)…';
+ try{
+  await v17l66Preview();
+  const report=legacy.textContent||'';
+  if(report.startsWith('VISTA PREVIA REAL 17L.66')){
+   const count=(report.match(/^Operaciones propuestas: (\d+)/m)||[])[1];
+   const blocked=report.includes('Integridad del candidato: BLOQUEADA');
+   out.textContent='17L.89 · PLAN GENERAL DE SINCRONIZACIÓN · SOLO LECTURA\n'+
+    (blocked?'REVISIÓN MANUAL OBLIGATORIA: la simulación detectó bloqueos.':
+     count==='0'?'TODO AL DÍA: ninguna operación propuesta.':
+     'CAMBIOS DETECTADOS: '+count+' operación(es) propuesta(s). Todavía NO está autorizada su aplicación.')+
+    '\n\n'+report+'\n\nNO SE HA ESCRITO EN ONEDRIVE NI EN LA BASE LOCAL.';
+  }else{
+   out.textContent='17L.89 · VISTA PREVIA NO COMPLETADA\n'+report+'\nNo se ha autorizado ninguna escritura.';
+  }
+ }catch(e){out.textContent='17L.89 · DETENIDO: '+(e?.message||String(e))+'\nSin escrituras.';}
+ finally{v17l89Busy=false;btn.disabled=false;}
+}
 function v17l26Panel(){
- document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.88 · Centro de sincronización (SANDBOX)</h2>
+ document.getElementById('content').innerHTML=`<div class="panel"><h2>Integración 17L.89 · Centro de sincronización (SANDBOX)</h2>
 <p>Interfaz integrada en pruebas. Trabaja exclusivamente con la base ficticia y el archivo OneDrive sandbox; no utilices datos reales.</p>
 <div class="panel" style="border:2px solid #397c9b;margin:16px 0;padding:18px">
 <h3>Sincronización guiada</h3>
@@ -10649,10 +10676,13 @@ function v17l26Panel(){
 <button class="btn primary" id="v17l85-check" onclick="v17l85Check()">Comprobar cambios (solo lectura)</button><div id="v17l85-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Pulsa Comprobar cambios para ver el resultado aquí, sin desplazarte por la página.</div>
 <p><strong>2. Revisar</strong> — Examina el diagnóstico y las dependencias. Los conflictos no se resuelven automáticamente.</p>
 <button class="btn" id="v17l86-review" onclick="v17l86Review()">Revisar dependencias (solo lectura)</button><div id="v17l86-review-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Pulsa Revisar dependencias para ver el informe aquí.</div>
-<p><strong>3. Sincronizar con autorización</strong> — Acciones protegidas de prueba. Solo permiten UNA baja aislada; no sincronizan altas, ediciones ni conflictos. Cada operación vuelve a comprobar los datos, exige sus propias confirmaciones y puede solicitar respaldo cifrado.</p>
+<p><strong>3. Vista previa general</strong> — Simula altas, ediciones, bajas y conflictos de las 12 tablas, sin modificar datos. Una vista previa válida NO autoriza la escritura.</p>
+<button class="btn primary" id="v17l89-preview" onclick="v17l89Preview()">Preparar plan general (solo lectura)</button>
+<div id="v17l89-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Aún no se ha preparado ningún plan.</div>
+<p><strong>4. Sincronizar con autorización</strong> — Acciones protegidas de prueba. Solo permiten UNA baja aislada; no sincronizan altas, ediciones ni conflictos. Cada operación vuelve a comprobar los datos, exige sus propias confirmaciones y puede solicitar respaldo cifrado.</p>
 <button class="btn" id="v17l87-send" onclick="v17l87Protected('send')">Enviar una baja local protegida (SANDBOX)</button>
 <button class="btn" id="v17l87-receive" onclick="v17l87Protected('receive')">Recibir una baja remota protegida (SANDBOX)</button>
-<p><strong>4. Verificar estado</strong> — Comprobar las tres copias y la referencia sin renovar ni sobrescribir respaldos. No escribe en el navegador ni en OneDrive.</p>
+<p><strong>5. Verificar estado</strong> — Comprobar las tres copias y la referencia sin renovar ni sobrescribir respaldos. No escribe en el navegador ni en OneDrive.</p>
 <button class="btn" id="v17l87-renew" onclick="v17l88Verify()">Verificar estado (solo lectura)</button>
 <div id="v17l87-result" role="status" aria-live="polite" style="white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;padding:12px;border:1px solid #ccd5dc;border-radius:8px">Las operaciones protegidas mostrarán aquí sus resultados. No se ha iniciado ninguna.</div>
 <p id="v17l84-status" style="font-size:0.92em;color:#345">Ninguna operación de sincronización iniciada desde este panel.</p>
