@@ -4995,7 +4995,7 @@ let v17l82Busy=false;
 async function v17l82Receive(){
  const out=document.getElementById('v17l82-out'),btn=document.getElementById('v17l82-receive');
  if(!out||!btn||v17l82Busy)return;
- v17l82Busy=true;btn.disabled=true;out.textContent='17L.82 · Prevalidando recepción local de baja única…';
+ v17l82Busy=true;btn.disabled=true;out.textContent='17L.82b · Prevalidando recepción local de baja única…';
  const say=x=>out.textContent+='\n'+x;
  const eq=(a,b)=>JSON.stringify(v26Sort(a))===JSON.stringify(v26Sort(b));
  try{
@@ -5035,7 +5035,10 @@ async function v17l82Receive(){
   if(!deleted){say('No hay una baja remota pendiente.');return;}
   const candidate=structuredClone(local);
   candidate[deleted.table]=candidate[deleted.table].filter(x=>String(x[deleted.pk])!==deleted.id);
-  if(v17eAnalyze(candidate).issues.length||v2410OpenMatches(candidate).length)throw Error('La baja deja dependencias inválidas.');
+  // Validate the candidate on its own. v2410OpenMatches compares against the
+  // currently open (pre-deletion) database and must not be used here.
+  const candidateIssues=v17eAnalyze(candidate).issues;
+  if(candidateIssues.length)throw Error('La baja deja dependencias inválidas: '+candidateIssues.slice(0,3).join('; '));
   for(const [table,pk] of Object.entries(V26_TABLES)){
    const norm=x=>x[table].map(r=>v17l29Comparable(table,r)).sort((a,b)=>String(a[pk]).localeCompare(String(b[pk])));
    if(!eq(norm(candidate),norm(remote)))throw Error('El candidato no coincide con OneDrive: '+table);
