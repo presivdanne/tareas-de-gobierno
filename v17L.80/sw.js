@@ -1,7 +1,7 @@
-const CACHE='tareas-gobierno-v29b-17L-general-snapshot-1';
+const CACHE='tareas-gobierno-migracion-17L99-local-only';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon.svg'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting())); });
-self.addEventListener('activate', event => { event.waitUntil((async()=>{for(const key of await caches.keys()){if(key.startsWith('tareas-gobierno-v29b-17L')&&key!==CACHE)await caches.delete(key)}await self.clients.claim()})()); });
+self.addEventListener('activate', event => { event.waitUntil((async()=>{for(const key of await caches.keys()){if(key.startsWith('tareas-gobierno-migracion-17L99')&&key!==CACHE)await caches.delete(key)}await self.clients.claim()})()); });
 self.addEventListener('fetch', event => {
  const req=event.request;
  if(req.method!=='GET'||new URL(req.url).origin!==self.location.origin)return;
