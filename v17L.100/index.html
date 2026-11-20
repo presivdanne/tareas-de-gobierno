@@ -12,7 +12,7 @@
 .v17l98-data details{border-top:1px solid #e0e6ed;margin-top:16px;padding-top:12px}
 .v17l98-data summary{cursor:pointer;font-weight:650;color:#315d82}
 @media(max-width:850px){.top{flex-direction:column}.top>div:last-child{width:100%}.mobilebar button{flex:0 0 auto}.v17l98-result{font-size:13px}.sandbox-ribbon{font-size:11px}}
-</style></head><body><div class="sandbox-ribbon">DATOS REALES CIFRADOS · CONEXIÓN ONEDRIVE CONTROLADA</div><div id="v23gate" style="max-width:650px;margin:8vh auto;padding:20px"><div class="panel"><h1>Tareas de Gobierno · Conexión OneDrive 17L.100</h1><p>Tus datos reales permanecen cifrados. Conecta OneDrive solo cuando estés preparada.</p><div id="v23form"></div><p id="v23msg" style="color:#a12631"></p></div></div><div class="shell"><aside class="side"><div class="brand">Tareas de Gobierno<small>17L.100 · Datos reales cifrados</small></div><nav id="desktopnav"></nav><div class="foot">Datos cifrados · Sincronización manual protegida</div></aside><main class="main"><div class="top"><div><div class="eyebrow">Organización y seguimiento</div><div class="h1" id="title"></div><div class="v17l98-net" id="v17l98-network" aria-live="polite">Conexión OneDrive · sincronización manual</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="backup">Exportar copia CIFRADA</button><button class="btn" onclick="lockV23()">Bloquear</button></div></div><div class="v17l98-warning"><strong>Datos reales 17L.100.</strong> Los datos permanecen cifrados en este navegador. La primera copia en OneDrive requiere tu confirmación explícita. Sincroniza antes de cambiar de dispositivo. Nunca subas archivos de datos a GitHub.</div><div id="content"></div><div class="foot">17L.100 · Datos reales cifrados · Conserva la copia original del 6 de noviembre y tu respaldo cifrado.</div></main></div><div id="mobilenav" class="mobilebar"></div><script>
+</style><style id="v100-iphone-fix">.v100-ios-flow{margin:12px 0;padding:12px;border:1px solid #b9d2e3;border-radius:10px;background:#f5faff}.v100-ios-flow .btn{margin:5px 4px 5px 0}#v100-mobile-menu[hidden]{display:none!important}@media(max-width:850px){#mobilenav.mobilebar{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));width:100%;left:0;bottom:0;overflow:visible;box-sizing:border-box;padding-bottom:env(safe-area-inset-bottom)}#mobilenav.mobilebar button{font-size:12px;min-width:0;padding:12px 2px;white-space:normal;line-height:1.2}#v100-mobile-menu{position:fixed;bottom:calc(60px + env(safe-area-inset-bottom));left:12px;right:12px;z-index:90;background:white;border:1px solid #cbd5e1;box-shadow:0 8px 30px #0003;border-radius:12px;padding:8px;max-height:65vh;overflow-y:auto}#v100-mobile-menu button{display:block;width:100%;background:white;border:0;border-bottom:1px solid #e5e7eb;padding:13px;text-align:left;font-size:16px;color:#19324c}}@media(min-width:851px){#v100-mobile-menu{display:none!important}}</style></head><body><div class="sandbox-ribbon">DATOS REALES CIFRADOS · CONEXIÓN ONEDRIVE CONTROLADA</div><div id="v23gate" style="max-width:650px;margin:8vh auto;padding:20px"><div class="panel"><h1>Tareas de Gobierno · Conexión OneDrive 17L.100</h1><p>Tus datos reales permanecen cifrados. Conecta OneDrive solo cuando estés preparada.</p><div id="v23form"></div><p id="v23msg" style="color:#a12631"></p></div></div><div class="shell"><aside class="side"><div class="brand">Tareas de Gobierno<small>17L.100 · Datos reales cifrados</small></div><nav id="desktopnav"></nav><div class="foot">Datos cifrados · Sincronización manual protegida</div></aside><main class="main"><div class="top"><div><div class="eyebrow">Organización y seguimiento</div><div class="h1" id="title"></div><div class="v17l98-net" id="v17l98-network" aria-live="polite">Conexión OneDrive · sincronización manual</div></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="backup">Exportar copia CIFRADA</button><button class="btn" onclick="lockV23()">Bloquear</button></div></div><div class="v17l98-warning"><strong>Datos reales 17L.100.</strong> Los datos permanecen cifrados en este navegador. La primera copia en OneDrive requiere tu confirmación explícita. Sincroniza antes de cambiar de dispositivo. Nunca subas archivos de datos a GitHub.</div><div id="content"></div><div class="foot">17L.100 · Datos reales cifrados · Conserva la copia original del 6 de noviembre y tu respaldo cifrado.</div></main></div><div id="mobilenav" class="mobilebar"></div><script>
 const INITIAL={"Equipo_Miembros_Join":[],"Proyectos_Tareas_join":[],"Miembros":[],"Tareas":[],"To_Dos":[],"Instancias":[],"Asignaciones":[],"Tareas_Equipos_Join":[],"Cargos":[],"Equipos":[],"Proyectos":[]};
 const KEY='gobierno_real_17l100_encrypted_local';let db=structuredClone(INITIAL);db.Notas_Seguimiento=[];
 const PRIORITIES=[['corresponsabilidad','Corresponsabilidad y liderazgo compartido'],['consagracion','Consagración gozosa y profética'],['eclesialidad','Eclesialidad y comunión'],['sostenibilidad','Sostenibilidad humana y económica']];
@@ -12380,6 +12380,83 @@ async function v100RepairReference(){
  }catch(e){out.textContent='REFERENCIA NO CREADA: '+(e?.message||String(e))+'\nNo se han reemplazado datos.';}
  finally{v100Busy=false;}
 }
+// iPhone/iPad: downloading a JSON backup can open Quick Look and interrupt
+// the JavaScript confirmation. Keep the backup and receipt as separate clicks.
+const V100_IOS_BACKUP_PREFIX='gobierno_real_17l100_respaldo_ANTES_RECEPCION_INICIAL_';
+const V100_IOS_STAGED_PREFIX='gobierno_real_17l100_ios_empty_backup_';
+function v100IsIOS(){return /iPhone|iPad|iPod/i.test(navigator.userAgent)||
+ (navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);}
+function v100IOSHasBackup(raw){
+ for(let i=0;i<localStorage.length;i++){
+  const k=localStorage.key(i);
+  if((k.startsWith(V100_IOS_BACKUP_PREFIX)||k.startsWith(V100_IOS_STAGED_PREFIX))&&
+   localStorage.getItem(k)===raw)return true;
+ }
+ return false;
+}
+async function v100IOSPrepareBackup(){
+ const out=document.getElementById('v100-out');if(!out||v100Busy)return;
+ v100Busy=true;out.textContent='Preparando respaldo local del iPhone…';
+ try{
+  await saveQueue;
+  if(!v23Key||!v23Salt)throw Error('Desbloquea primero la base.');
+  if(localStorage.getItem(V17L48_BASELINE))throw Error('Ya existe referencia común. No es una recepción inicial.');
+  const raw=localStorage.getItem(KEY);
+  const local=await v23Open(validateV23(JSON.parse(raw)),v23Key);
+  if(!v100Empty(local)||!v100Empty(db))throw Error('El dispositivo ya contiene datos. No se reemplazarán.');
+  if(!(await v24Meta()))throw Error('No existe la copia real en OneDrive.');
+  const key=V100_IOS_STAGED_PREFIX+(await v24Hash(raw)).slice(0,24);
+  const existing=localStorage.getItem(key);
+  if(existing!==null&&existing!==raw)throw Error('Hay otro respaldo con la misma clave.');
+  localStorage.setItem(key,raw);
+  if(localStorage.getItem(key)!==raw)throw Error('No se guardó el respaldo local.');
+  out.textContent='RESPALDO CIFRADO PREPARADO. Guarda el archivo en Archivos del iPhone.\n'+
+   'Después cierra la vista previa y vuelve a esta pantalla. Pulsa «2. Recibir base real».\n'+
+   'La descarga NO ha reemplazado ningún dato.';
+  v17l93Download(raw,'Respaldo_REAL_ANTES_RECEPCION_INICIAL_'+new Date().toISOString().slice(0,10)+'_CIFRADO.json');
+ }catch(e){out.textContent='NO SE PREPARÓ EL RESPALDO: '+(e?.message||String(e))+'\nNo se han reemplazado datos.';}
+ finally{v100Busy=false;}
+}
+async function v100IOSReceive(){
+ const out=document.getElementById('v100-out');if(!out||v100Busy)return;
+ v100Busy=true;out.textContent='Verificando recepción inicial del iPhone…';
+ let attempted=false;
+ try{
+  await saveQueue;
+  if(!v23Key||!v23Salt)throw Error('Desbloquea primero la base.');
+  if(localStorage.getItem(V17L48_BASELINE))throw Error('Ya existe referencia común. Usa sincronización normal.');
+  const localRaw=localStorage.getItem(KEY);
+  const local=await v23Open(validateV23(JSON.parse(localRaw)),v23Key);
+  if(!v100Empty(local)||!v100Empty(db))throw Error('Este dispositivo no está vacío. No se reemplazarán datos existentes.');
+  if(!v100IOSHasBackup(localRaw))throw Error('Primero pulsa «1. Guardar respaldo cifrado» y guarda el archivo en Archivos.');
+  if(!confirm('¿Confirmas que has guardado el respaldo CIFRADO del iPhone en Archivos?\n\n'+
+   'No continúes si no has guardado el archivo.'))return;
+  const rr=await v100RemoteRead();if(!rr)throw Error('Aún no existe la copia real de OneDrive.');
+  const decrypted=await v100DecryptRemote(rr.raw);if(!decrypted)return;
+  const source=decrypted.data;
+  if(!v100HasRealData(source)||v17eAnalyze(source).issues.length)
+   throw Error('La copia remota no parece ser la base real verificada.');
+  const sealed=JSON.stringify(await v23Seal(source,v23Key,v23Salt));
+  if(!v100Equal(await v23Open(validateV23(JSON.parse(sealed)),v23Key),source))
+   throw Error('No se verificó el cifrado local.');
+  if(!confirm('RECIBIR BASE REAL EN IPHONE\n\n'+v100Counts(source)+'\n\n'+
+   'El respaldo local está guardado. ¿Recibir ahora los datos de OneDrive?'))return;
+  const latest=await v100RemoteRead();
+  if(!latest||latest.meta.eTag!==rr.meta.eTag||latest.hash!==rr.hash||
+   localStorage.getItem(KEY)!==localRaw||!v100IOSHasBackup(localRaw))
+   throw Error('OneDrive, la base local o el respaldo cambiaron antes de recibir.');
+  attempted=true;
+  localStorage.setItem(KEY,sealed);
+  const checked=await v23Open(validateV23(JSON.parse(localStorage.getItem(KEY))),v23Key);
+  if(v17eAnalyze(checked).issues.length||!v100Equal(checked,source))
+   throw Error('No se verificó la base recibida.');
+  db=checked;
+  await v100SaveBaseline(checked,rr.meta,rr.raw,sealed,null);
+  out.textContent='RECEPCIÓN INICIAL VERIFICADA. Tus datos reales están disponibles en este dispositivo.\n'+v100Counts(checked);
+ }catch(e){out.textContent='RECEPCIÓN NO CONFIRMADA: '+(e?.message||String(e))+'\n'+
+  (attempted?'La base local pudo cambiar. No reintentes sin revisar.':'No se han reemplazado datos.');}
+ finally{v100Busy=false;}
+}
 async function v100ReceiveInitial(){
  const out=document.getElementById('v100-out');if(!out||v100Busy)return;
  v100Busy=true;out.textContent='Comprobando recepción inicial…';
@@ -12425,7 +12502,7 @@ function v100Panel(){
  <details><summary>Primera conexión de la base real</summary>
  <p>En el ordenador donde están tus datos reales, crea la primera copia solo una vez. En otro dispositivo vacío, utiliza la recepción inicial. Si ya existe el archivo remoto, nunca se sobrescribe durante la configuración inicial.</p>
  <div class="toolbar"><button class="btn" onclick="v100Seed()">Crear primera copia CIFRADA en OneDrive</button>
- <button class="btn" onclick="v100ReceiveInitial()">Recibir base inicial en este dispositivo vacío</button>
+ ${v100IsIOS()?`<div class="v100-ios-flow"><p><strong>Recepción en iPhone / iPad (dos pasos)</strong><br>La descarga puede abrir una vista previa y cerrar las confirmaciones. Guarda primero el respaldo; después vuelve y continúa con el segundo botón.</p><button class="btn" onclick="v100IOSPrepareBackup()">1. Guardar respaldo cifrado del iPhone</button> <button class="btn primary" onclick="v100IOSReceive()">2. Recibir base real (respaldo ya guardado)</button></div>`:`<button class="btn" onclick="v100ReceiveInitial()">Recibir base inicial en este dispositivo vacío</button>`}
  <button class="btn" onclick="v100RepairReference()">Registrar referencia si las dos copias ya coinciden</button></div></details>
  <p class="muted small">Conserva siempre la copia cifrada descargada. Las operaciones de escritura requieren autorización expresa y verifican la versión remota.</p>
  <div id="v100-out" style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:14px" aria-live="polite">Sin comprobar. Conecta Microsoft cuando el enlace esté registrado en Azure.</div></div>`;
@@ -12486,6 +12563,29 @@ render=function(){
    if(copies)nav.insertBefore(b,copies);else nav.append(b);
   }
  }
+ v100MobileNavigation();
 };
+function v100ToggleMobileMenu(){
+ const menu=document.getElementById('v100-mobile-menu');if(!menu)return;
+ menu.hidden=!menu.hidden;
+}
+function v100MobileNavigate(p){
+ const menu=document.getElementById('v100-mobile-menu');if(menu)menu.hidden=true;
+ nav(p);
+}
+function v100MobileNavigation(){
+ const bar=document.getElementById('mobilenav');if(!bar)return;
+ const choices=[['inicio','Inicio'],['todos','To-dos'],['tareas','Tareas'],['proyectos','Proyectos']];
+ bar.innerHTML=choices.map(([p,label])=>`<button class="${page===p?'active':''}" onclick="v100MobileNavigate('${p}')">${label}</button>`).join('')+
+  '<button id="v100-menu-button" aria-label="Abrir menú completo" onclick="v100ToggleMobileMenu()">☰ Menú</button>';
+ let menu=document.getElementById('v100-mobile-menu');
+ if(!menu){menu=document.createElement('div');menu.id='v100-mobile-menu';menu.hidden=true;document.body.append(menu);}
+ menu.hidden=true;
+ menu.innerHTML=[['syncmanual','Sincronizar OneDrive'],['equipos','Equipos'],['personas','Personas'],
+  ['prioridades','Prioridades'],['informes','Informes'],['datos','Datos y copias'],
+  ['inicio','Inicio'],['todos','To-dos'],['tareas','Tareas'],['proyectos','Proyectos']]
+  .map(([p,label])=>`<button onclick="v100MobileNavigate('${p}')">${label}</button>`).join('');
+}
 function navToSync(){nav('syncmanual');}
+
 </script>
