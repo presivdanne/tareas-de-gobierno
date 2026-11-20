@@ -12173,7 +12173,7 @@ function v100Diff(a,b){
 function v100Plan(c){
  const lc=!v100Equal(c.base,c.local),rc=!v100Equal(c.base,c.remote),equal=v100Equal(c.local,c.remote);
  const matched=c.base._v17l48_reference.etag===c.meta.eTag&&
-  c.base._v17l48_reference.remoteHash===c.remoteHash;
+  c.base._v17l48_reference.remoteHash===c.hash; // v100RemoteRead returns hash, not remoteHash
  let action='current';
  if(lc&&rc)action=equal?'renew':'conflict';
  else if(lc)action=matched?'send':'conflict';
@@ -12493,7 +12493,7 @@ async function v100ReceiveInitial(){
 }
 function v100Panel(){
  document.getElementById('content').innerHTML=`<div class="panel">
- <h2>Sincronizar OneDrive · datos reales</h2>
+ <h2>Sincronizar OneDrive · datos reales <small style="font-size:12px;color:#64748b">17L.100j</small></h2>
  <p>Los datos se guardan <strong>cifrados</strong>. OneDrive contiene únicamente un archivo cifrado distinto de los archivos del sandbox. La sincronización es <strong>manual</strong>: utiliza un dispositivo a la vez y sincroniza antes de cambiar.</p>
  <p class="muted small">Archivo de OneDrive: <code>${E(V24_REMOTE)}</code>. No se suben contraseñas ni datos legibles. Ante cambios simultáneos, se bloquea la sincronización.</p>
  <div class="toolbar"><button class="btn" onclick="v24Login()">Conectar Microsoft</button>
