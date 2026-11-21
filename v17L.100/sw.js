@@ -1,4 +1,4 @@
-const CACHE='tareas-gobierno-real-17L100-v3';
+const CACHE='tareas-gobierno-real-17L100-v4';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon.svg'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',event=>{event.waitUntil((async()=>{for(const k of await caches.keys())if(k.startsWith('tareas-gobierno-real-17L100-')&&k!==CACHE)await caches.delete(k);await self.clients.claim();})());});

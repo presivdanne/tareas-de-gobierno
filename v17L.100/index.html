@@ -12339,8 +12339,10 @@ async function v100Check(apply=false){
   // On iOS the file preview can interrupt this JavaScript function after the
   // backup download. Never start a one-click receive on iOS: use the staged,
   // two-click flow that survives leaving the page.
-  if(p.action==='receive'&&v100IsIOS()){
-   out.textContent+='\nRECEPCIÓN IPHONE EN DOS PASOS: usa «1. Guardar respaldo» y después «2. Recibir actualizaciones». No se ha reemplazado ningún dato.';
+  if(v100IsIOS()&&(p.action==='receive'||p.action==='send')){
+   out.textContent+=p.action==='receive'?
+    '\nRECEPCIÓN IPHONE EN DOS PASOS: usa «1. Guardar respaldo» y después «2. Recibir actualizaciones». No se ha reemplazado ningún dato.':
+    '\nENVÍO IPHONE EN DOS PASOS: usa «1. Guardar respaldo» y después «2. Enviar cambios». No se ha enviado nada.';
    return;
   }
   if(!confirm('SINCRONIZACIÓN DE DATOS REALES\n\n'+v100Describe(p)+'\n\n¿Continuar con respaldo cifrado?'))return;
@@ -12409,6 +12411,108 @@ async function v100RepairReference(){
   await v100SaveBaseline(local,rr.meta,rr.raw,raw,null);
   out.textContent='REFERENCIA COMÚN VERIFICADA. La base local y OneDrive coinciden. No se han reemplazado datos.';
  }catch(e){out.textContent='REFERENCIA NO CREADA: '+(e?.message||String(e))+'\nNo se han reemplazado datos.';}
+ finally{v100Busy=false;}
+}
+// 17L.100n: protected upload from an ALREADY POPULATED iPhone.
+// Safari/Chrome on iOS can navigate to a file preview during download and
+// terminate the active JS call. Step 1 persists an encrypted backup and exact
+// preconditions. Step 2 has NO download; it rechecks local state and remote
+// ETag/hash, encrypts the local candidate, PUTs with If-Match, then verifies.
+const V100_IOS_SEND_PREFIX='gobierno_real_17l100_ios_send_backup_';
+async function v100IOSSendKey(localRaw,baseRaw){
+ return V100_IOS_SEND_PREFIX+(await v24Hash(localRaw+'\n'+baseRaw)).slice(0,32);
+}
+async function v100IOSSendBackup(){
+ const out=document.getElementById('v100-out');if(!out||v100Busy)return;
+ v100Busy=true;out.textContent='Preparando respaldo cifrado antes del envío desde iPhone…';
+ try{
+  const c=await v100Context();if(!c){out.textContent='CANCELADO. No se ha enviado nada.';return;}
+  const p=v100Plan(c);
+  if(p.action!=='send'||p.remote.added||p.remote.edited||p.remote.deleted)
+   throw Error('No hay un envío exclusivamente local autorizado. '+v100Describe(p));
+  if(v17eAnalyze(c.local).issues.length||v17eAnalyze(c.remote).issues.length)
+   throw Error('La base local o la copia de OneDrive no supera la integridad.');
+  await v100Stable(c);
+  validateV23(JSON.parse(c.localRaw));validateV23(JSON.parse(c.raw));
+  const key=await v100IOSSendKey(c.localRaw,c.baseRaw);
+  const record={encryptedLocal:c.localRaw,encryptedRemote:c.raw,
+   baseHash:await v24Hash(c.baseRaw),localHash:await v24Hash(c.localRaw),
+   remoteEtag:c.meta.eTag,remoteHash:c.hash};
+  const serialized=JSON.stringify(record),old=localStorage.getItem(key);
+  if(old!==null&&old!==serialized){
+   const previous=JSON.parse(old);
+   if(previous.encryptedLocal!==record.encryptedLocal||previous.baseHash!==record.baseHash)
+    throw Error('Existe un respaldo distinto con la misma clave.');
+   // A changed remote snapshot may only be staged after a fresh safe plan.
+  }
+  localStorage.setItem(key,serialized);
+  if(localStorage.getItem(key)!==serialized)throw Error('No se pudo conservar el respaldo cifrado.');
+  out.textContent='RESPALDO CIFRADO PREPARADO. '+v100Describe(p)+'\n'+
+   'Guarda el respaldo cifrado del iPhone en Archivos. Después vuelve a esta pantalla y pulsa «2. Enviar cambios».\n'+
+   'OneDrive todavía no se ha modificado.';
+  v17l93Download(c.localRaw,'Respaldo_REAL_IPHONE_ANTES_ENVIAR_'+new Date().toISOString().slice(0,10)+'_CIFRADO.json');
+ }catch(e){out.textContent='RESPALDO NO PREPARADO: '+(e?.message||String(e))+'\nNo se ha enviado nada.';}
+ finally{v100Busy=false;}
+}
+async function v100IOSSendChanges(){
+ const out=document.getElementById('v100-out');if(!out||v100Busy)return;
+ v100Busy=true;out.textContent='Verificando envío protegido desde iPhone…';
+ let attemptedRemote=false;
+ try{
+  await saveQueue;
+  if(!v23Key||!v23Salt)throw Error('Desbloquea primero la base local.');
+  const localRaw=localStorage.getItem(KEY),baseRaw=localStorage.getItem(V17L48_BASELINE);
+  if(!localRaw||!baseRaw)throw Error('No existe una referencia común. No utilices este procedimiento.');
+  const key=await v100IOSSendKey(localRaw,baseRaw),stored=localStorage.getItem(key);
+  if(!stored)throw Error('Primero pulsa «1. Guardar respaldo cifrado» y guarda el archivo en Archivos.');
+  const marker=JSON.parse(stored);
+  if(marker.encryptedLocal!==localRaw||marker.baseHash!==await v24Hash(baseRaw)||
+   marker.localHash!==await v24Hash(localRaw))
+   throw Error('La base local o la referencia cambiaron desde el respaldo. Repite el paso 1.');
+  validateV23(JSON.parse(marker.encryptedLocal));
+  validateV23(JSON.parse(marker.encryptedRemote));
+  if(await v24Hash(marker.encryptedRemote)!==marker.remoteHash)
+   throw Error('El respaldo remoto guardado no supera la comprobación.');
+  const c=await v100Context();if(!c){out.textContent='CANCELADO. No se ha enviado nada.';return;}
+  const p=v100Plan(c);
+  if(p.action!=='send'||p.remote.added||p.remote.edited||p.remote.deleted)
+   throw Error('El estado ya no es un envío exclusivamente local. '+v100Describe(p));
+  if(c.localRaw!==localRaw||c.baseRaw!==baseRaw||c.meta.eTag!==marker.remoteEtag||
+   c.hash!==marker.remoteHash||c.raw!==marker.encryptedRemote)
+   throw Error('OneDrive o el iPhone cambiaron desde el respaldo. Repite el paso 1.');
+  if(v17eAnalyze(c.local).issues.length||v17eAnalyze(c.remote).issues.length)
+   throw Error('La base local o la copia de OneDrive no supera la integridad.');
+  const sealed=JSON.stringify(await v23Seal(c.local,c.remoteKey,c.remoteSalt));
+  const verified=await v23Open(validateV23(JSON.parse(sealed)),c.remoteKey);
+  if(!v100Equal(verified,c.local)||v17eAnalyze(verified).issues.length)
+   throw Error('La copia cifrada preparada no coincide con los datos del iPhone.');
+  if(!confirm('¿Has guardado el respaldo CIFRADO del iPhone en Archivos?\n\n'+
+   'No continúes si no lo has guardado.'))return;
+  if(!confirm('ENVIAR CAMBIOS REALES DESDE IPHONE\n\n'+v100Describe(p)+'\n\n'+
+   'Se actualizará el archivo cifrado de OneDrive. ¿Continuar?'))return;
+  if(prompt('Escribe ENVIAR REAL para autorizar:')!=='ENVIAR REAL')
+   throw Error('Autorización cancelada.');
+  await v100Stable(c);
+  if(localStorage.getItem(key)!==stored||localStorage.getItem(KEY)!==localRaw||
+   localStorage.getItem(V17L48_BASELINE)!==baseRaw)
+   throw Error('Los datos o el respaldo cambiaron antes del envío.');
+  attemptedRemote=true;
+  v100WritePermit=true;let response;
+  try{response=await v24Fetch(V24_CONTENT,'PUT',sealed,{
+   'Content-Type':'application/json','If-Match':c.meta.eTag,
+   'X-Real-Sync-Authorization':'ACTUALIZAR_V100'});}
+  finally{v100WritePermit=false;}
+  if(!response.ok)throw Error('OneDrive HTTP '+response.status+'. No reintentes sin comprobar el estado.');
+  const rr=await v100RemoteRead();
+  if(!rr||rr.meta.eTag===c.meta.eTag)throw Error('OneDrive no confirmó nueva versión.');
+  const remote=await v23Open(validateV23(JSON.parse(rr.raw)),c.remoteKey);
+  if(v17eAnalyze(remote).issues.length||!v100Equal(remote,c.local))
+   throw Error('La copia remota no coincide con el envío.');
+  await v100SaveBaseline(c.local,rr.meta,rr.raw,c.localRaw,c.baseRaw);
+  out.textContent='ENVÍO VERIFICADO. OneDrive y este iPhone coinciden. Referencia renovada.\n'+
+   v100Describe(p)+'\nNuevo ETag: '+rr.meta.eTag;
+ }catch(e){out.textContent='ENVÍO NO VERIFICADO: '+(e?.message||String(e))+'\n'+
+  (attemptedRemote?'PUDO HABER UN ENVÍO. No reintentes sin comprobar OneDrive.':'No se ha enviado nada.');}
  finally{v100Busy=false;}
 }
 // 17L.100m: protected update reception on an ALREADY POPULATED iPhone.
@@ -12611,12 +12715,13 @@ async function v100ReceiveInitial(){
 }
 function v100Panel(){
  document.getElementById('content').innerHTML=`<div class="panel">
- <h2>Sincronizar OneDrive · datos reales <small style="font-size:12px;color:#64748b">17L.100m · recepción iPhone en dos pasos</small></h2>
+ <h2>Sincronizar OneDrive · datos reales <small style="font-size:12px;color:#64748b">17L.100n · sincronización iPhone en dos pasos</small></h2>
  <p>Los datos se guardan <strong>cifrados</strong>. OneDrive contiene únicamente un archivo cifrado distinto de los archivos del sandbox. La sincronización es <strong>manual</strong>: utiliza un dispositivo a la vez y sincroniza antes de cambiar.</p>
  <p class="muted small">Archivo de OneDrive: <code>${E(V24_REMOTE)}</code>. No se suben contraseñas ni datos legibles. Ante cambios simultáneos, se bloquea la sincronización.</p>
  <div class="toolbar"><button class="btn" onclick="v24Login()">Conectar Microsoft</button>
  <button class="btn" onclick="v100Check(false)">Comprobar cambios (solo lectura)</button>
  <button class="btn primary" onclick="v100Check(true)">Sincronizar con protección</button></div>
+ ${v100IsIOS()?`<div class="v100-ios-flow"><p><strong>Enviar cambios del iPhone a OneDrive (dos pasos)</strong><br>Si has añadido o editado datos en el iPhone y OneDrive no tiene cambios pendientes, guarda primero un respaldo cifrado de este iPhone. Después vuelve desde la vista previa y pulsa el segundo botón. No uses «Sincronizar con protección» para enviar desde iPhone.</p><button class="btn" onclick="v100IOSSendBackup()">1. Guardar respaldo cifrado antes de enviar</button> <button class="btn primary" onclick="v100IOSSendChanges()">2. Enviar cambios (respaldo ya guardado)</button></div>`:''}
  ${v100IsIOS()?`<div class="v100-ios-flow"><p><strong>Actualizar iPhone desde OneDrive (dos pasos)</strong><br>Si OneDrive tiene cambios y el iPhone no tiene cambios locales, guarda primero el respaldo cifrado. Después vuelve desde la vista previa y pulsa el segundo botón. No uses «Primera conexión» para actualizar una base existente.</p><button class="btn" onclick="v100IOSUpdateBackup()">1. Guardar respaldo cifrado del iPhone</button> <button class="btn primary" onclick="v100IOSUpdateReceive()">2. Recibir actualizaciones (respaldo ya guardado)</button></div>`:''}
  <details><summary>Primera conexión de la base real</summary>
  <p>En el ordenador donde están tus datos reales, crea la primera copia solo una vez. En otro dispositivo vacío, utiliza la recepción inicial. Si ya existe el archivo remoto, nunca se sobrescribe durante la configuración inicial.</p>
