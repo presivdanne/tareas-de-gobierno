@@ -12295,6 +12295,30 @@ async function v100Seed(){
  }catch(e){out.textContent='NO CONFIRMADO: '+(e?.message||String(e))+'\n'+(wrote?'PUDO HABER UNA CREACIÓN EN ONEDRIVE. No reintentes hasta revisar.':'No se ha enviado una copia nueva.');}
  finally{v100Busy=false;}
 }
+// 17L.100k: read-only diagnostic for a blocked real-data synchronization.
+// This helper never writes to localStorage, IndexedDB or OneDrive and never
+// prints record values, titles, passwords or hashes.
+function v100ConflictDiagnostic(c){
+ const ref=c.base._v17l48_reference;
+ const sameRows=Object.entries(V26_TABLES).every(([table,pk])=>
+  v17l93Equal(v17l93Normalized(c.base,table,pk),v17l93Normalized(c.remote,table,pk)));
+ const excluded=new Set([...Object.keys(V26_TABLES),'_v17l49_deletions','_v17l48_reference']);
+ const metadataKeys=[...new Set([...Object.keys(c.base),...Object.keys(c.remote)])]
+  .filter(k=>!excluded.has(k)).sort();
+ const metadataDiff=metadataKeys.filter(k=>!v17l93Equal(c.base[k],c.remote[k]));
+ const bool=x=>x?'SÍ':'NO';
+ return '\nDIAGNÓSTICO 17L.100k (SOLO LECTURA, sin datos personales):'+
+  '\nReferencia ETag: '+ref.etag+
+  '\nOneDrive ETag: '+c.meta.eTag+
+  '\nETag coincide: '+bool(ref.etag===c.meta.eTag)+
+  '\nHuella cifrada coincide: '+bool(ref.remoteHash===c.hash)+
+  '\nRegistros de 12 tablas OneDrive/referencia iguales: '+bool(sameRows)+
+  '\nMarcador de bajas OneDrive/referencia igual: '+bool(v17l93Equal(c.base._v17l49_deletions,c.remote._v17l49_deletions))+
+  '\nMetadatos OneDrive/referencia diferentes: '+(metadataDiff.join(', ')||'ninguno')+
+  '\nDatos completos OneDrive/referencia iguales: '+bool(v100Equal(c.base,c.remote))+
+  '\nDatos completos local/OneDrive iguales: '+bool(v100Equal(c.local,c.remote))+
+  '\nNo se ha modificado ninguna copia.';
+}
 async function v100Check(apply=false){
  const out=document.getElementById('v100-out');if(!out||v100Busy)return;
  v100Busy=true;out.textContent='Comprobando base local y OneDrive…';
@@ -12309,7 +12333,7 @@ async function v100Check(apply=false){
   }
   const c=await v100Context();if(!c){out.textContent='Cancelado. No se han modificado datos.';return;}
   const p=v100Plan(c);out.textContent=v100Describe(p)+'\nETag: '+c.meta.eTag;
-  if(p.action==='conflict'){out.textContent+='\nBLOQUEADO: conserva las dos copias y solicita revisión. No se ha escrito nada.';return;}
+  if(p.action==='conflict'){out.textContent+='\nBLOQUEADO: conserva las dos copias y solicita revisión. No se ha escrito nada.'+v100ConflictDiagnostic(c);return;}
   if(!apply){out.textContent+='\nSOLO LECTURA: no se ha modificado ninguna copia.';return;}
   if(p.action==='current'){out.textContent+='\nTodo está al día. No hace falta sincronizar.';return;}
   if(!confirm('SINCRONIZACIÓN DE DATOS REALES\n\n'+v100Describe(p)+'\n\n¿Continuar con respaldo cifrado?'))return;
@@ -12493,7 +12517,7 @@ async function v100ReceiveInitial(){
 }
 function v100Panel(){
  document.getElementById('content').innerHTML=`<div class="panel">
- <h2>Sincronizar OneDrive · datos reales <small style="font-size:12px;color:#64748b">17L.100j</small></h2>
+ <h2>Sincronizar OneDrive · datos reales <small style="font-size:12px;color:#64748b">17L.100k diagnóstico</small></h2>
  <p>Los datos se guardan <strong>cifrados</strong>. OneDrive contiene únicamente un archivo cifrado distinto de los archivos del sandbox. La sincronización es <strong>manual</strong>: utiliza un dispositivo a la vez y sincroniza antes de cambiar.</p>
  <p class="muted small">Archivo de OneDrive: <code>${E(V24_REMOTE)}</code>. No se suben contraseñas ni datos legibles. Ante cambios simultáneos, se bloquea la sincronización.</p>
  <div class="toolbar"><button class="btn" onclick="v24Login()">Conectar Microsoft</button>
