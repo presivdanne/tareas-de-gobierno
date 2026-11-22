@@ -1,17 +1,16 @@
 {
-  "name": "Tareas de Gobierno 17L.101 (Pruebas)",
-  "short_name": "Tareas 101",
+  "name": "Tareas de Gobierno 17L.102 (Pruebas)",
+  "short_name": "Tareas 102",
+  "lang": "es",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f4f7fb",
   "theme_color": "#19324c",
   "icons": [
-    {
-      "src": "./icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
   ]
 }
