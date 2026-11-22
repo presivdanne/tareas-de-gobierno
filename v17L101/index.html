@@ -12879,7 +12879,7 @@ function v101TodoCard(x,tid,isOpen){
  <label class="v101-note-label" for="v101-note-${todoId}">Nota continua · seguimiento</label>
  <div class="v101-note-editor" id="v101-note-${todoId}" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Nota continua del to-do">${v29bC7Html(x)}</div>
  <div class="toolbar"><button type="button" class="btn" onmousedown="event.preventDefault()" onclick="v101Format(${todoId},'bold')"><b>Negrita</b></button><button type="button" class="btn" onmousedown="event.preventDefault()" onclick="v101Format(${todoId},'italic')"><i>Cursiva</i></button><button type="button" class="btn" onmousedown="event.preventDefault()" onclick="v101Format(${todoId},'insertUnorderedList')">• Lista</button><button type="button" class="btn" onmousedown="event.preventDefault()" onclick="v101Format(${todoId},'insertOrderedList')">1. Lista numerada</button></div>
- <div class="toolbar"><button type="button" class="btn primary" onclick="v101SaveTodo(${todoId})">Guardar cambios</button><button type="button" class="btn" onclick="v101Toggle(${todoId},${tid})">Cerrar</button><button type="button" class="btn" onclick="v101OpenFull(${todoId},${tid})">Abrir ficha completa</button><span class="v101-feedback" id="v101-feedback-${todoId}" role="status">${v101LastSaved===todoId?'Guardado en copia de pruebas':''}</span></div></div></section>`;
+ <div class="toolbar"><button type="button" class="btn primary" onclick="v101SaveTodo(${todoId})">Guardar cambios</button><button type="button" class="btn" onclick="v101Toggle(${todoId},${tid})">Cerrar</button><button type="button" class="btn" onclick="v101OpenFull(${todoId},${tid})">Abrir ficha completa</button><button type="button" class="btn danger" onclick="v101DeleteInline(${todoId},${tid})">Eliminar to-do</button><span class="v101-feedback" id="v101-feedback-${todoId}" role="status">${v101LastSaved===todoId?'Guardado en copia de pruebas':''}</span></div></div></section>`;
 }
 function v101EditId(el){const card=el?.closest?.('[data-v101-id]');return card?Number(card.dataset.v101Id):null}
 function v101MarkDirty(el,note=false){const n=v101EditId(el);if(n===null)return;v101Dirty.add(n);if(note)v101NoteDirty.add(n);const f=document.getElementById('v101-feedback-'+n);if(f){f.className='v101-dirty';f.textContent='Sin guardar';}}
@@ -12889,6 +12889,7 @@ function v101CaptureDrafts(){
  if(page!=='tareas'||id===null)return;
  for(const card of document.querySelectorAll('.v101-todo.open')){
   const n=Number(card.dataset.v101Id);
+  if(!arr('To_Dos').some(z=>Number(z.To_Do_ID)===n))continue; // Deleted cards must not restore drafts.
   const title=document.getElementById('v101-title-'+n),dt=document.getElementById('v101-date-'+n),st=document.getElementById('v101-status-'+n),note=document.getElementById('v101-note-'+n);
   if(title&&dt&&st&&note)v101Drafts.set(n,{title:title.value,date:dt.value,status:st.value,note:note.innerHTML});
  }
@@ -12946,6 +12947,44 @@ function v101OpenFull(todoId,tid){
  if(page!=='todos'||Number(id)!==Number(todoId))v101ReturnTask=previous;
 }
 function v101ReturnToTask(){const tid=v101ReturnTask;v101ReturnTask=null;if(tid!==null&&name('Tareas',tid))nav('tareas',tid);else nav('tareas')}
+
+// 17L.101b: deleting a to-do should keep the user's task context.
+function v101ForgetDeletedTodo(n,tid){
+ n=Number(n);tid=Number(tid);
+ v101TaskSet(tid).delete(n);
+ v101Drafts.delete(n);v101Dirty.delete(n);v101NoteDirty.delete(n);
+ if(v101LastSaved===n)v101LastSaved=null;
+}
+function v101DeleteInline(n,tid){
+ n=Number(n);tid=Number(tid);
+ if(page!=='tareas'||String(id)!==String(tid))return;
+ const todo=arr('To_Dos').find(x=>Number(x.To_Do_ID)===n);
+ if(!todo||String(todo.Tarea_ID)!==String(tid))return;
+ if(!confirm('¿Eliminar definitivamente este to-do y sus notas de seguimiento de esta COPIA DE PRUEBAS? Esta acción no se puede deshacer.'))return;
+ // Preserve drafts in other expanded to-dos; remove only the deleted item's state.
+ v101CaptureDrafts();
+ db.To_Dos=arr('To_Dos').filter(x=>Number(x.To_Do_ID)!==n);
+ db.Notas_Seguimiento=arr('Notas_Seguimiento').filter(x=>Number(x.To_Do_ID)!==n);
+ v101ForgetDeletedTodo(n,tid);
+ save();render();
+}
+const v101BaseDeleteTodo=deleteTodo;
+deleteTodo=function(n){
+ n=Number(n);
+ const todo=arr('To_Dos').find(x=>Number(x.To_Do_ID)===n);
+ if(!todo)return;
+ const origin=page==='todos'&&String(id)===String(n)&&v101ReturnTask!==null&&String(todo.Tarea_ID)===String(v101ReturnTask)
+  ?Number(v101ReturnTask):null;
+ // Retain the original confirmation, deletion and encrypted-save logic.
+ v101BaseDeleteTodo(n);
+ // If the user cancels deletion, the record remains and navigation is unchanged.
+ if(origin!==null&&!arr('To_Dos').some(x=>Number(x.To_Do_ID)===n)){
+  v101ForgetDeletedTodo(n,origin);
+  v101ReturnTask=null;
+  nav('tareas',origin);
+ }
+};
+
 const v101OriginalTodoDetail=todoDetail29;
 todoDetail29=function(){let html=v101OriginalTodoDetail();if(v101ReturnTask!==null&&name('Tareas',v101ReturnTask)){
   html=html.replace('<button class="btn" onclick="nav(\'todos\')">← Volver a To-dos</button>',
@@ -12959,7 +12998,7 @@ nav=function(p,i=null,...rest){
  const leaving=page==='tareas'&&id!==null&&(p!=='tareas'||String(i)!==String(id));
  if(leaving&&v101Dirty.size&&!confirm('Hay cambios sin guardar en uno o más to-dos. ¿Salir y descartarlos?'))return;
  if(leaving){v101Dirty.clear();v101NoteDirty.clear();v101Drafts.clear()}
- if(p!=='todos'&&p!=='tareas')v101ReturnTask=null;
+ if((p==='todos'&&i===null)||(p!=='todos'&&p!=='tareas'))v101ReturnTask=null;
  return v101BaseNav(p,i,...rest);
 };
 const v101BaseRender=render;
@@ -12971,7 +13010,7 @@ render=function(){
  const net=document.getElementById('v17l98-network');if(net)net.textContent='Copia local de pruebas · OneDrive desactivado';
  const content=document.getElementById('content');if(content&&page==='tareas'&&id!==null){
   const banner=document.createElement('div');banner.className='v101-copy-banner';
-  banner.textContent='17L.101 · PRUEBAS: edita y compara varios to-dos sin salir de esta tarea. Los cambios se guardan solo en esta copia cifrada, nunca en OneDrive.';
+  banner.textContent='17L.101b · PRUEBAS: edita, compara y elimina to-dos sin salir de esta tarea. Los cambios se guardan solo en esta copia cifrada, nunca en OneDrive.';
   content.prepend(banner);
  }
  v101RestoreDrafts();
@@ -13001,7 +13040,7 @@ v23Form=function(){
 // Remove misleading production links from this preview's navigation.
 // Clear old sandbox wording from the backup page; never expose a real-data import here.
 const v101OriginalDataPage=dataPage;
-dataPage=function(){return `<div class="panel"><h2>Copias de seguridad · 17L.101 (pruebas)</h2><p>Esta es una copia LOCAL e INDEPENDIENTE de la base real. Las modificaciones realizadas aquí no aparecen en 17L.100 ni en OneDrive.</p><button class="btn primary" onclick="exportData()">Exportar copia CIFRADA de pruebas</button><p class="muted">No restaures esta copia de pruebas en tu aplicación real. Para sincronizar datos reales utiliza únicamente 17L.100.</p></div>`};
+dataPage=function(){return `<div class="panel"><h2>Copias de seguridad · 17L.101b (pruebas)</h2><p>Esta es una copia LOCAL e INDEPENDIENTE de la base real. Las modificaciones realizadas aquí no aparecen en 17L.100 ni en OneDrive.</p><button class="btn primary" onclick="exportData()">Exportar copia CIFRADA de pruebas</button><p class="muted">No restaures esta copia de pruebas en tu aplicación real. Para sincronizar datos reales utiliza únicamente 17L.100.</p></div>`};
 const v101OldNavToSync=navToSync;
 navToSync=function(){alert('La versión 17L.101 es solo para pruebas locales. Utiliza 17L.100 para sincronizar con OneDrive.')};
 const v101OldMobileNavigation=v100MobileNavigation;
